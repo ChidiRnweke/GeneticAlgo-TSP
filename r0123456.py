@@ -74,21 +74,26 @@ def mutate(individual: Individual) -> None:
 	return
 
 def recombination(parent1: np.array, parent2: np.array) -> None:
-	#PMX still needs random splits, right now it's deterministic
-    splitp1 = np.array_split(parent1,3)
-    splitp2 = np.array_split(parent2,3)
-    for key,val in zip(splitp1[1],splitp2[1]):
-        splitp1[0][splitp1[0]==val] = key
-        splitp1[2][splitp1[2]==val] = key
-        splitp1[0][splitp1[0]==val] = key
-        splitp1[2][splitp1[2]==val] = key
+	#PMX
 
-        splitp2[0][splitp2[0]==key] = val
-        splitp2[2][splitp2[2]==key] = val
-        splitp2[0][splitp2[0]==key] = val
-        splitp2[2][splitp2[2]==key] = val
+    index1 = sample(range(1, int(parent1.size / 2)), 1)
+    index2 = sample(range(index1[0] + 2, parent1.size), 1)
+    indices = np.array([index1[0],index2[0]])
+    splitp1 = np.array_split(parent1,indices)
+    splitp2 = np.array_split(parent2,indices)
     o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
     o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+
+    while (np.unique(o1).size != o1.size):
+        for key,val in zip(splitp1[1],splitp2[1]):
+            splitp1[0][splitp1[0]==val] = key
+            splitp1[2][splitp1[2]==val] = key
+        o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
+    while (np.unique(o2).size != o2.size):
+        for key,val in zip(splitp1[1],splitp2[1]):
+            splitp2[0][splitp2[0]==key] = val
+            splitp2[2][splitp2[2]==key] = val
+        o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
     return Individual(o1), Individual(o2)
 
 #Calculates the fitness of one individual
