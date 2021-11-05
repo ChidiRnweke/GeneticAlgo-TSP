@@ -16,7 +16,7 @@ class r0123456:
 			bestIndice = None
 			for indice in randomIndices:
 				fit = population[indice].fitness
-				if fit > bestFit:
+				if fit < bestFit:
 					bestFit = fit
 					bestIndice = indice
 			newPopulation.append(population[bestIndice])
@@ -63,13 +63,13 @@ class r0123456:
 
 		#Parameters
 		populationSize = 30
-		maxIterations = 50
-		kTournment = 3
+		maxIterations = 200
+		kTournment = 5
 		numberOfOffspring = 30
+		mu = 0.05
 
 		#Initialize the population
 		population = initialize(distanceMatrix, populationSize)
-		unique_paths(population, "Initial population")
 
 		#Main loop TODO add a stopping condition beside a max number of iterations
 		iteration = 0 
@@ -81,24 +81,18 @@ class r0123456:
 			# Your code here.
 			offspring = []
 			for count in range(numberOfOffspring):
-				unique_paths(population, "Before selection")
 				parent1 = selection(population, kTournment)
-				print(parent1.path)
 				parent2 = selection(population, kTournment)
-				print(parent2.path)
-				unique_paths([parent1, parent2], f"Before calling recombination in loop {count}")
 				offspring1, offspring2 = recombination(distanceMatrix, parent1, parent2)
-				unique_paths([offspring1, offspring2], f"After calling recombination in loop {count}")
 				offspring.append(offspring1)
 				offspring.append(offspring2)
 			population = np.append(population, offspring)
-			unique_paths(population, "After recombination cycle")
 
 			population = self.elimination(population, populationSize, kTournment, distanceMatrix)
-			unique_paths(population, "After elimination cycle")
 			for individual in population:
-				mutate(individual)
-			unique_paths(population, "After mutation")
+				probability = np.random.uniform(0,1)
+				if probability < mu:
+					mutate(individual)
 
 			# Call the reporter with:
 			#  - the mean objective function value of the population
@@ -142,17 +136,10 @@ def initialize(KSP, populationSize: int) -> list:
 		population.append(individual)
 	return np.array(population)
 
-def unique_paths(population, msg):
-		for individual in population:
-			if not np.unique(individual.path).size == individual.path.size:
-				raise ValueError(msg)
-			else:
-				print("OK")
-
 
 
 def mutate(individual: Individual) -> None:
-	indices = sample(range(len(individual.path)),2)
+	indices = sample(range(len(individual.path)), 2)
 	individual.path[indices[0]], individual.path[indices[1]] = individual.path[indices[1]], individual.path[indices[0]].copy()
 
 def recombination(TSP, par1: Individual, par2: Individual) -> None:
@@ -166,41 +153,21 @@ def recombination(TSP, par1: Individual, par2: Individual) -> None:
 	splitp2 = np.array_split(parent2,indices)
 	o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
 	o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
-	print("New recomb")
-	print(f"Parent1: {parent1}")
-	print(f"Parent2: {parent2}")
-	print(o1)
-	print(o2)
-	print(splitp1)
-	print(splitp2)
 	while (np.unique(o1).size != o1.size):
-		print(f"First: {splitp1[1]}")
-		print(f"Second: {splitp2[1]}")
 		for key,val in zip(splitp1[1],splitp2[1]):
 			splitp1[0][splitp1[0]==val] = key
 			splitp1[2][splitp1[2]==val] = key
 			o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
-		print(o1)
-		print(o2)
-	print("After first while loop")
 	while (np.unique(o2).size != o2.size):
-		print(f"First: {splitp1[1]}")
-		print(f"Second: {splitp2[1]}")
 		for key,val in zip(splitp1[1],splitp2[1]):
 			splitp2[0][splitp2[0]==key] = val
 			splitp2[2][splitp2[2]==key] = val
 			o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
-		print(o1)
-		print(o2)
-	print("After second while loop")
-	ind1 = Individual(TSP, path=o1)
-	ind2 = Individual(TSP, path=o2)
-	unique_paths([ind1, ind2], "In recombination")
 	return Individual(TSP, path=o1), Individual(TSP, path=o2)
 
 def selection(population: np.array, k: int):
 	selected = np.random.choice(population, k)
-	highest = np.argmax([ind.fitness for ind in selected])
+	highest = np.argmin([ind.fitness for ind in selected])
 	return selected[highest]
 
 #Calculates the fitness of one individual
