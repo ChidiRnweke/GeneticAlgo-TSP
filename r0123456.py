@@ -7,6 +7,53 @@ class r0123456:
 	def __init__(self):
 		self.reporter = Reporter.Reporter(self.__class__.__name__)
 
+	def selection(self, population, numberOfSelections, kTournment, distanceMatrix ):
+		populationSize = len(population)
+		newPopulation = []
+		for idx in range(numberOfSelections) :
+			randomIndices = sample(range(populationSize), kTournment)
+			bestFit = 0
+			bestIndice = None
+			for indice in randomIndices:
+				fit = fitness(distanceMatrix, population[indice])
+				if fit > bestFit:
+					bestFit = fit
+					bestIndice = indice
+			newPopulation.append(population[bestIndice])
+		return newPopulation
+
+	def applyMutation(self, population):
+		newPopulation = []
+		for idx in range(int(len(population)/2)) :
+			path1 = population[idx].path
+			path2 = population[int(len(population)/2)+idx].path
+			newPath1, newPath2 = self.mutatePaths(path1,path2)
+			population[idx].path = newPath1
+			population[int(len(population) / 2) + idx].path = newPath2
+			newPopulation.append(population[idx])
+			newPopulation.append(population[int(len(population) / 2) + idx])
+		return np.array(newPopulation)
+
+	def mutatePaths(self, path1, path2):
+		new_path1 = np.zeros(path1.shape,dtype=path1.dtype) - 1
+		new_path1[:int(path1.shape[0] / 2)] = path1[:int(path1.shape[0] / 2)]
+
+		new_path2 = np.zeros(path2.shape, dtype=path1.dtype) -1
+		new_path2[:int(path2.shape[0] / 2)] = path2[:int(path2.shape[0] / 2)]
+
+		for val in range(int(path1.shape[0] / 2), path1.shape[0]):
+			if path2[val] not in new_path1:
+				new_path1[val] = path2[val]
+			if path1[val] not in new_path2:
+				new_path2[val] = path1[val]
+
+		for i in range(path1.shape[0]):
+			if i not in new_path1:
+				new_path1[np.where(new_path1 == -1)[0][0]] = i
+			if i not in new_path2:
+				new_path2[np.where(new_path2 == -1)[0][0]] = i
+		return new_path1, new_path2
+
 	# The evolutionary algorithm's main loop
 	def optimize(self, filename):
 		# Read distance matrix from file.		
@@ -21,6 +68,9 @@ class r0123456:
 		#Initialize the population
 		population = initialize(distanceMatrix.shape[0], populationSize)
 
+		numberOfSelections = 30
+		kTournment = 3
+
 		#Main loop TODO add a stopping condition beside a max number of iterations
 		iteration = 0 
 		while( iteration < maxIterations ):
@@ -30,16 +80,22 @@ class r0123456:
 
 			# Your code here.
 
+			newPopulation = self.selection(population, numberOfSelections, kTournment, distanceMatrix)
+			mutatedPopulation = self.applyMutation(newPopulation)
+
 			# Call the reporter with:
 			#  - the mean objective function value of the population
 			#  - the best objective function value of the population
 			#  - a 1D numpy array in the cycle notation containing the best solution 
 			#    with city numbering starting from 0
-			populationEvaluation = evaluatePopulation(distanceMatrix, population)
+			populationEvaluation = evaluatePopulation(distanceMatrix, mutatedPopulation)
 			meanObjective = populationEvaluation[0]
 			bestObjective = populationEvaluation[1]
 			bestSolution = populationEvaluation[2].path
 			timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
+
+			population = mutatedPopulation
+
 			print(f"Time left: {timeLeft}")
 			if timeLeft < 0:
 				break
@@ -47,6 +103,8 @@ class r0123456:
 
 		# Your code here.
 		return 0
+
+
 
 #Class representing individuals
 class Individual():
