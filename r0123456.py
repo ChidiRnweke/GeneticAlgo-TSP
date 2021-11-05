@@ -10,7 +10,7 @@ class r0123456:
 	def selection(self, population, numberOfSelections, kTournment, distanceMatrix ):
 		populationSize = len(population)
 		newPopulation = []
-		for idx in range(numberOfSelections) :
+		for idx in range(numberOfSelections):
 			randomIndices = sample(range(populationSize), kTournment)
 			bestFit = 0
 			bestIndice = None
