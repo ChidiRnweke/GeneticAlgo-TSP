@@ -1,6 +1,6 @@
 import Reporter
 import numpy as np
-
+from random import sample
 # Modify the class name to match your student number.
 class r0123456:
 
@@ -53,23 +53,46 @@ class Individual():
 
 	#Initializes a new path individual with a given size. If an array is given it uses this array instead of randomizing.
 	#The class has a path variable representing the chosen path as a numpy array.
-	def __init__(self, size: int, path = None):
+	def __init__(self, size: int, path: np.array = None):
 		if path is None:
 			self.path = np.arange(size)
 			np.random.shuffle(self.path)
 		else:
 			self.path = path
 
-#Create the initial population
-def initialize(individualSize: int, populationSize: int):
+#Create the initial population 
+def initialize(individualSize: int, populationSize: int) -> list:
 	population = []
 	for _ in range(populationSize):
 		individual = Individual(individualSize)
 		population.append(individual)
 	return np.array(population)
 
+def mutate(individual: Individual) -> None:
+	indices = sample(range(len(individual.path)),2)
+	individual.path[indices[0]], individual.path[indices[1]] = individual.path[indices[1]], individual.path[indices[0]].copy()
+	return
+
+def recombination(parent1: np.array, parent2: np.array) -> None:
+	#PMX still needs random splits, right now it's deterministic
+    splitp1 = np.array_split(parent1,3)
+    splitp2 = np.array_split(parent2,3)
+    for key,val in zip(splitp1[1],splitp2[1]):
+        splitp1[0][splitp1[0]==val] = key
+        splitp1[2][splitp1[2]==val] = key
+        splitp1[0][splitp1[0]==val] = key
+        splitp1[2][splitp1[2]==val] = key
+
+        splitp2[0][splitp2[0]==key] = val
+        splitp2[2][splitp2[2]==key] = val
+        splitp2[0][splitp2[0]==key] = val
+        splitp2[2][splitp2[2]==key] = val
+    o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
+    o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+    return Individual(o1), Individual(o2)
+
 #Calculates the fitness of one individual
-def fitness(TSP, individual):
+def fitness(TSP: np.array, individual: Individual) -> int:
 	totalDistance = 0
 	#For every two following cities add the distance between them to the sum.
 	for i in range(individual.path.shape[0]):
