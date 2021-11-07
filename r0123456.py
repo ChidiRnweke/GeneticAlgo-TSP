@@ -12,7 +12,7 @@ class r0123456:
 		newPopulation = []
 		for idx in range(numberOfSelections):
 			randomIndices = sample(range(populationSize), kTournment)
-			bestFit = 0
+			bestFit = 1e9
 			bestIndice = None
 			for indice in randomIndices:
 				fit = population[indice].fitness
@@ -63,10 +63,11 @@ class r0123456:
 
 		#Parameters
 		populationSize = 30
-		maxIterations = 200
+		maxIterations = 500
 		kTournment = 5
 		numberOfOffspring = 30
 		mu = 0.05
+		muDecreasingFactor = 0.9
 
 		#Initialize the population
 		population = initialize(distanceMatrix, populationSize)
@@ -104,7 +105,6 @@ class r0123456:
 			bestObjective = populationEvaluation[1]
 			bestSolution = populationEvaluation[2].path
 			timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
-
 			print(f"Time left: {timeLeft}")
 			if timeLeft < 0:
 				break
@@ -153,6 +153,7 @@ def recombination(TSP, par1: Individual, par2: Individual) -> None:
 	splitp2 = np.array_split(parent2,indices)
 	o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
 	o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+
 	while (np.unique(o1).size != o1.size):
 		for key,val in zip(splitp1[1],splitp2[1]):
 			splitp1[0][splitp1[0]==val] = key
