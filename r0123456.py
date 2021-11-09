@@ -129,20 +129,18 @@ class Individual():
 		self.fitness = fitness(TSP, self.path)
 
 #Create the initial population 
-def initialize(KSP, populationSize: int) -> list:
+def initialize(KSP, populationSize: int) -> np.ndarray:
 	population = []
 	for _ in range(populationSize):
 		individual = Individual(KSP, KSP.shape[0])
 		population.append(individual)
 	return np.array(population)
 
-
-
 def mutate(individual: Individual) -> None:
 	indices = sample(range(len(individual.path)), 2)
 	individual.path[indices[0]], individual.path[indices[1]] = individual.path[indices[1]], individual.path[indices[0]].copy()
 
-def recombination(TSP, par1: Individual, par2: Individual) -> None:
+def recombination(TSP, par1: Individual, par2: Individual) -> tuple:
 	#PMX
 	parent1 = np.copy(par1.path)
 	parent2 = np.copy(par2.path)
@@ -158,12 +156,12 @@ def recombination(TSP, par1: Individual, par2: Individual) -> None:
 		for key,val in zip(splitp1[1],splitp2[1]):
 			splitp1[0][splitp1[0]==val] = key
 			splitp1[2][splitp1[2]==val] = key
-			o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
+		o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
 	while (np.unique(o2).size != o2.size):
 		for key,val in zip(splitp1[1],splitp2[1]):
 			splitp2[0][splitp2[0]==key] = val
 			splitp2[2][splitp2[2]==key] = val
-			o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+		o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
 	return Individual(TSP, path=o1), Individual(TSP, path=o2)
 
 def selection(population: np.array, k: int):
