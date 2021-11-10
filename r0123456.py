@@ -62,19 +62,21 @@ class r0123456:
 		file.close()
 
 		#Parameters
-		populationSize = 30
-		maxIterations = 500
-		kTournment = 5
-		numberOfOffspring = 30
-		mu = 0.05
+		populationSize = 40
+		maxIterations = 1000
+		kTournment = 7
+		numberOfOffspring = 40
+		mu = 0.1
 		muDecreasingFactor = 0.9
 
 		#Initialize the population
 		population = initialize(distanceMatrix, populationSize)
 
 		#Main loop TODO add a stopping condition beside a max number of iterations
-		iteration = 0 
-		while( iteration < maxIterations ):
+		iteration = 0
+		meanObjective = 1.0
+		bestObjective = 0.0
+		while( iteration < maxIterations):
 			meanObjective = 0.0
 			bestObjective = 0.0
 			bestSolution = np.array([1,2,3,4,5])
@@ -91,6 +93,7 @@ class r0123456:
 
 			population = self.elimination(population, populationSize, kTournment, distanceMatrix)
 			for individual in population:
+				#mu = mu * muDecreasingFactor
 				probability = np.random.uniform(0,1)
 				if probability < mu:
 					mutate(individual)
