@@ -66,8 +66,8 @@ class r0123456:
 		maxIterations = 1000
 		kTournment = 7
 		numberOfOffspring = 40
-		mu = 0.1
-		muDecreasingFactor = 0.9
+		mu = 1.0
+		muDecreasingFactor = 0.90
 
 		#Initialize the population
 		population = initialize(distanceMatrix, populationSize)
@@ -76,7 +76,13 @@ class r0123456:
 		iteration = 0
 		meanObjective = 1.0
 		bestObjective = 0.0
-		while( iteration < maxIterations):
+
+		prevSolution = 1e9
+		tolerance = 0.001
+		sameSolutionIterations = 100
+		sameSolutionCount = 0
+
+		while( iteration < maxIterations and sameSolutionCount < sameSolutionIterations):
 			meanObjective = 0.0
 			bestObjective = 0.0
 			bestSolution = np.array([1,2,3,4,5])
@@ -93,10 +99,13 @@ class r0123456:
 
 			population = self.elimination(population, populationSize, kTournment, distanceMatrix)
 			for individual in population:
-				#mu = mu * muDecreasingFactor
 				probability = np.random.uniform(0,1)
 				if probability < mu:
 					mutate(individual)
+			if mu < 0.1:
+				mu = 0.1
+			else:
+				mu = mu*muDecreasingFactor
 
 			# Call the reporter with:
 			#  - the mean objective function value of the population
@@ -108,6 +117,15 @@ class r0123456:
 			bestObjective = populationEvaluation[1]
 			bestSolution = populationEvaluation[2].path
 			timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
+
+			# checking if the objectscore reduces or not
+			difference = prevSolution -  bestObjective
+			if abs(difference) < tolerance:
+				sameSolutionCount +=1
+			else:
+				sameSolutionCount = 0
+			prevSolution = bestObjective
+
 			print(f"Time left: {timeLeft}")
 			if timeLeft < 0:
 				break
