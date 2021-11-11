@@ -66,8 +66,7 @@ class r0123456:
 		maxIterations = 1000
 		kTournment = 7
 		numberOfOffspring = 40
-		mu = 1.0
-		muDecreasingFactor = 0.90
+		mu = 0.15
 
 		#Initialize the population
 		population = initialize(distanceMatrix, populationSize)
@@ -102,10 +101,6 @@ class r0123456:
 				probability = np.random.uniform(0,1)
 				if probability < mu:
 					mutate(individual)
-			if mu < 0.1:
-				mu = 0.1
-			else:
-				mu = mu*muDecreasingFactor
 
 			# Call the reporter with:
 			#  - the mean objective function value of the population
@@ -120,7 +115,7 @@ class r0123456:
 
 			# checking if the objectscore reduces or not
 			difference = prevSolution -  bestObjective
-			if abs(difference) < tolerance:
+			if difference < tolerance:
 				sameSolutionCount +=1
 			else:
 				sameSolutionCount = 0
