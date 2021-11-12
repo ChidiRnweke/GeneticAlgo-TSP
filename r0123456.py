@@ -66,6 +66,7 @@ class r0123456:
 		maxIterations = 3000
 		kTournment = 7
 		numberOfOffspring = 40
+		sameSolutionIterations = 100
 		mu = 0.15
 
 		#Initialize the population
@@ -78,7 +79,6 @@ class r0123456:
 
 		prevSolution = 1e9
 		tolerance = 0.001
-		sameSolutionIterations = 100
 		sameSolutionCount = 0
 
 		while( iteration < maxIterations and sameSolutionCount < sameSolutionIterations):
