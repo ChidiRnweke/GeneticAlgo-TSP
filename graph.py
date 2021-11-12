@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 def load_data(file: str, number_cities):
     file_path = create_path(file)
@@ -15,27 +16,30 @@ def load_data(file: str, number_cities):
 def plot(file: str, num_cities):
     df = load_data(file, num_cities)
 
-    plt.style.use('seaborn')
-    fig, ax1 = plt.subplots()
-    fig.suptitle("_")
-    fig.set_size_inches(40 / 2.54, 30 / 2.54)
+    # plt.style.use('seaborn')
+    # fig, ax1 = plt.subplots()
+    # fig.suptitle("_")
+    # fig.set_size_inches(40 / 2.54, 30 / 2.54)
+    #
+    # ax1.set_xlabel("Iterations")
+    # ax1.set_ylabel("Mean", color='tab:red')
+    # ax1.plot(df["Iteration"], df["Mean"], color='tab:red')
+    # ax1.tick_params(axis='y', labelcolor='tab:red')
+    # ax1.xaxis.set_major_locator(plt.MaxNLocator(10))
+    # ax1.yaxis.set_major_locator(plt.MaxNLocator(10))
 
-    ax1.set_xlabel("Iterations")
-    ax1.set_ylabel("Mean", color='tab:red')
-    ax1.plot(df["Iteration"], df["Mean"], color='tab:red')
-    ax1.tick_params(axis='y', labelcolor='tab:red')
-    ax1.xaxis.set_major_locator(plt.MaxNLocator(10))
-    ax1.yaxis.set_major_locator(plt.MaxNLocator(10))
+    # ax2 = ax1.twinx()
+    #
+    # ax2.set_ylabel("Best", color='tab:blue')
+    # ax2.plot(df["Iteration"], df["Best"], color='tab:blue')
+    # ax2.tick_params(axis='y', labelcolor='tab:blue')
+    # ax2.xaxis.set_major_locator(plt.MaxNLocator(10))
+    # ax2.yaxis.set_major_locator(plt.MaxNLocator(10))
 
-    ax2 = ax1.twinx()
+    # plt.show()
 
-    ax2.set_ylabel("Best", color='tab:blue')
-    ax2.plot(df["Iteration"], df["Best"], color='tab:blue')
-    ax2.tick_params(axis='y', labelcolor='tab:blue')
-    ax2.xaxis.set_major_locator(plt.MaxNLocator(10))
-    ax2.yaxis.set_major_locator(plt.MaxNLocator(10))
-
-    plt.show()
+    fig = px.line(df, x='Iteration', y='Mean', title='Mean value per iteration')
+    fig.show()
 
 
 def create_path(file: str):

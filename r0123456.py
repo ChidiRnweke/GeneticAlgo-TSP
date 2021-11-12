@@ -63,10 +63,10 @@ class r0123456:
 
 		#Parameters
 		populationSize = 40
-		maxIterations = 1000
+		maxIterations = 3000
 		kTournment = 7
 		numberOfOffspring = 40
-		mu = 0.1
+		mu = 0.05
 		muDecreasingFactor = 0.9
 
 		#Initialize the population
@@ -75,7 +75,7 @@ class r0123456:
 		#Main loop TODO add a stopping condition beside a max number of iterations
 		iteration = 0
 		meanObjective = 1.0
-		bestObjective = 0.0
+		bestObjective = 30000.0
 		while( iteration < maxIterations):
 			meanObjective = 0.0
 			bestObjective = 0.0
