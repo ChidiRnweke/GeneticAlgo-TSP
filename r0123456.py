@@ -1,16 +1,8 @@
 import Reporter
 import numpy as np
 from random import sample
-from numba import njit, jitclass, int16, float64
 
 # Modify the class name to match your student number.
-
-individual_spec = [
-    ("TSP", int16[:]),
-    ("size", int16),
-    ("path", int16[:]),
-    ("fitness", float64),
-]
 
 
 class r0786701:
@@ -23,7 +15,7 @@ class r0786701:
         for idx in range(numberOfSelections):
             randomIndices = sample(range(populationSize), kTournment)
             bestFit = 1e9
-            bestIndice = None
+            bestIndice = randomIndices[0]
             for indice in randomIndices:
                 fit = population[indice].fitness
                 if fit < bestFit:
@@ -68,13 +60,15 @@ class r0786701:
     def optimize(self, filename):
         # Read distance matrix from file.
         file = open(filename)
-        distanceMatrix = np.loadtxt(file, delimiter=",")
+        distanceMatrix = np.genfromtxt(
+            file, delimiter=",", missing_values="inf", filling_values=1000000000000
+        )
         file.close()
         # Parameters
-        populationSize = 500
+        populationSize = 5000
         maxIterations = 3000
         kTournment = 3
-        numberOfOffspring = 500
+        numberOfOffspring = 5000
         sameSolutionIterations = 20
         mu = 0.15
 
@@ -145,7 +139,6 @@ class r0786701:
 # Class representing individuals
 
 
-@jitclass(individual_spec)
 class Individual:
     def __init__(self, TSP: np.array, size: int = 0, path: np.array = None):
         """[Initializes a new path individual with a given size. If an array is given it uses this array instead of randomizing.
@@ -195,7 +188,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population = []
     for _ in range(populationSize):
         individual = Individual(TSP, TSP.shape[0])
-        individual = k_opt(individual, TSP, 2)
+        # individual = k_opt(individual, TSP, 1)
         population.append(individual)
     return np.array(population)
 
@@ -258,12 +251,14 @@ def fitness(TSP: np.array, path: np.array) -> float:
         arrivingCity = path[i]
         # Assumed the rows represent departing cities and the column ariving cities
         totalDistance += TSP[departingCity, arrivingCity]
+        if totalDistance == np.inf:
+            return float("inf")
     return totalDistance
 
 
 # Calculates the mean fitness of the population and the best fitting individual (Needed for the Reporter class)
 def evaluatePopulation(TSP, population):
-    bestFit = np.inf
+    bestFit = float("inf")
     sumFit = 0
     bestIndividual = None
     for individual in population:
@@ -277,5 +272,6 @@ def evaluatePopulation(TSP, population):
 
 if __name__ == "__main__":
     algorithm = r0786701()
-    algorithm.optimize("tour29.csv")
+
+    algorithm.optimize("tour250.csv")
 
