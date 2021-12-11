@@ -1,6 +1,7 @@
 import Reporter
 import numpy as np
 from random import sample
+from numba import njit, types
 
 # Modify the class name to match your student number.
 
@@ -11,71 +12,36 @@ class r0786701:
 
     def elimination(self, population, numberOfSelections, kTournment, distanceMatrix):
         populationSize = len(population)
-        newPopulation = []
+        newPopulation = np.zeros((numberOfSelections, population.shape[1]))
         for idx in range(numberOfSelections):
             randomIndices = sample(range(populationSize), kTournment)
             bestFit = 1e9
             bestIndice = randomIndices[0]
             for indice in randomIndices:
-                fit = population[indice].fitness
+                fit = fitness(distanceMatrix, population[indice])
                 if fit < bestFit:
                     bestFit = fit
                     bestIndice = indice
-            newPopulation.append(population[bestIndice])
-        return np.array(newPopulation)
-
-    def applyMutation(self, population):
-        newPopulation = []
-        for idx in range(int(len(population) / 2)):
-            path1 = population[idx].path
-            path2 = population[int(len(population) / 2) + idx].path
-            newPath1, newPath2 = self.mutatePaths(path1, path2)
-            population[idx].path = newPath1
-            population[int(len(population) / 2) + idx].path = newPath2
-            newPopulation.append(population[idx])
-            newPopulation.append(population[int(len(population) / 2) + idx])
-        return np.array(newPopulation)
-
-    def mutatePaths(self, path1, path2):
-        new_path1 = np.zeros(path1.shape, dtype=path1.dtype) - 1
-        new_path1[: int(path1.shape[0] / 2)] = path1[: int(path1.shape[0] / 2)]
-
-        new_path2 = np.zeros(path2.shape, dtype=path1.dtype) - 1
-        new_path2[: int(path2.shape[0] / 2)] = path2[: int(path2.shape[0] / 2)]
-
-        for val in range(int(path1.shape[0] / 2), path1.shape[0]):
-            if path2[val] not in new_path1:
-                new_path1[val] = path2[val]
-            if path1[val] not in new_path2:
-                new_path2[val] = path1[val]
-
-        for i in range(path1.shape[0]):
-            if i not in new_path1:
-                new_path1[np.where(new_path1 == -1)[0][0]] = i
-            if i not in new_path2:
-                new_path2[np.where(new_path2 == -1)[0][0]] = i
-        return new_path1, new_path2
+            newPopulation[idx] = population[bestIndice].copy()
+        return newPopulation
 
     # The evolutionary algorithm's main loop
     def optimize(self, filename):
         # Read distance matrix from file.
         file = open(filename)
-        distanceMatrix = np.genfromtxt(
-            file, delimiter=",", missing_values="inf", filling_values=1000000000000
-        )
+        distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 5000
+        populationSize = 500
         maxIterations = 3000
         kTournment = 3
-        numberOfOffspring = 5000
+        numberOfOffspring = 500
         sameSolutionIterations = 20
         mu = 0.15
+        # fitness.map = {}
 
-        # Initialize the population
         population = initialize(distanceMatrix, populationSize)
 
-        # Main loop TODO add a stopping condition beside a max number of iterations
         iteration = 0
         meanObjective = 1.0
         bestObjective = 0.0
@@ -90,20 +56,20 @@ class r0786701:
             bestSolution = np.array([1, 2, 3, 4, 5])
 
             # Your code here.
-            offspring = []
-            for count in range(numberOfOffspring):
-                parent1 = selection(population, kTournment)
-                parent2 = selection(population, kTournment)
+            offspring = np.zeros((numberOfOffspring, distanceMatrix.shape[0]))
+            for i in range(0, numberOfOffspring, 2):
+                parent1 = selection(population, kTournment, distanceMatrix)
+                parent2 = selection(population, kTournment, distanceMatrix)
                 offspring1, offspring2 = recombination(distanceMatrix, parent1, parent2)
-                offspring.append(offspring1)
-                offspring.append(offspring2)
-            population = np.append(population, offspring)
+                offspring[i] = offspring1.copy()
+                offspring[i + 1] = offspring2.copy()
+            population = np.vstack((population, offspring))
 
             population = self.elimination(
                 population, populationSize, kTournment, distanceMatrix
             )
             for individual in population:
-                # individual = k_opt(individual, distanceMatrix, 1)
+                individual = k_opt(individual, distanceMatrix, 1)
                 probability = np.random.uniform(0, 1)
                 if probability < mu:
                     mutate(individual)
@@ -116,7 +82,7 @@ class r0786701:
             populationEvaluation = evaluatePopulation(distanceMatrix, population)
             meanObjective = populationEvaluation[0]
             bestObjective = populationEvaluation[1]
-            bestSolution = populationEvaluation[2].path
+            bestSolution = populationEvaluation[2]
             timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
 
             # checking if the objectscore reduces or not
@@ -158,7 +124,8 @@ class Individual:
         self.fitness = fitness(TSP, self.path)
 
 
-def k_opt(candidate: Individual, problem: np.array, k: int) -> Individual:
+@njit(nogil=True)
+def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
     Args:
@@ -169,9 +136,9 @@ def k_opt(candidate: Individual, problem: np.array, k: int) -> Individual:
         Individual: [The best candidate in the neighbourhood]
     """
     for _ in range(k):
-        best_path = candidate.path
-        best_fit = candidate.fitness
-        initial = np.copy(candidate.path)
+        best_path = candidate
+        best_fit = fitness(problem, candidate)
+        initial = np.copy(candidate)
         # neighbourhood = np.empty(initial.shape[1], dtype=object)
         for i in range(initial.size):
             for j in range(i + 1, initial.size):
@@ -179,34 +146,40 @@ def k_opt(candidate: Individual, problem: np.array, k: int) -> Individual:
                 neighbour[i], neighbour[j] = neighbour[j], neighbour[i]
                 fit = fitness(TSP=problem, path=neighbour)
                 best_path = neighbour if fit < best_fit else best_path
-        candidate = Individual(TSP=problem, path=best_path)
-    return Individual(TSP=problem, path=best_path)
+    return best_path
 
 
 # Create the initial population
+
+
 def initialize(TSP, populationSize: int) -> np.ndarray:
-    population = []
-    for _ in range(populationSize):
-        individual = Individual(TSP, TSP.shape[0])
-        # individual = k_opt(individual, TSP, 1)
-        population.append(individual)
-    return np.array(population)
+    rng = np.random.default_rng()
+
+    population = np.arange(TSP.shape[1])
+    population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
+    population = rng.permuted(population, axis=1)
+    out = []
+    for row in population:
+        row = k_opt(row, TSP, 2)
+        out.append(row)
+    return np.array(out)
 
 
-def mutate(individual: Individual) -> None:
-    indices = sample(range(len(individual.path)), 2)
-    individual.path[indices[0]], individual.path[indices[1]] = (
-        individual.path[indices[1]],
-        individual.path[indices[0]].copy(),
+@njit()
+def mutate(individual: np.array) -> None:
+    indices = np.random.randint(low=0, high=len(individual), size=2)
+    individual[indices[0]], individual[indices[1]] = (
+        individual[indices[1]],
+        individual[indices[0]],
     )
 
 
-def recombination(TSP, par1: Individual, par2: Individual) -> tuple:
+def recombination(TSP, par1: np.array, par2: np.array) -> tuple:
     # PMX
-    parent1 = np.copy(par1.path)
-    parent2 = np.copy(par2.path)
-    index1 = sample(range(1, int(parent1.size / 2)), 1)
-    index2 = sample(range(index1[0] + 2, parent1.size - 1), 1)
+    parent1 = np.copy(par1)
+    parent2 = np.copy(par2)
+    index1 = sample(range(1, int(parent1.shape[0] / 2)), 1)
+    index2 = sample(range(index1[0] + 2, parent1.shape[0] - 1), 1)
     indices = np.array([index1[0], index2[0]])
     splitp1 = np.array_split(parent1, indices)
     splitp2 = np.array_split(parent2, indices)
@@ -223,15 +196,17 @@ def recombination(TSP, par1: Individual, par2: Individual) -> tuple:
             splitp2[0][splitp2[0] == key] = val
             splitp2[2][splitp2[2] == key] = val
         o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
-    return Individual(TSP, path=o1), Individual(TSP, path=o2)
+    return o1, o2
 
 
-def selection(population: np.array, k: int):
-    selected = np.random.choice(population, k)
-    highest = np.argmin([ind.fitness for ind in selected])
+def selection(population: np.array, k: int, TSP):
+    rng = np.random.default_rng()
+    selected = rng.choice(population, k, axis=0)
+    highest = np.argmin([fitness(TSP=TSP, path=ind) for ind in selected])
     return selected[highest]
 
 
+@njit()
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
@@ -243,35 +218,36 @@ def fitness(TSP: np.array, path: np.array) -> float:
     Returns:
         float: [The fitness value]
     """
-
     totalDistance = 0
-    # For every two following cities add the distance between them to the sum.
+    # string_rep = str(path)
+    # if string_rep in fitness.map.keys():
+    #   return fitness.map[string_rep]
+    # else:
     for i in range(path.shape[0]):
-        departingCity = path[i - 1]
-        arrivingCity = path[i]
-        # Assumed the rows represent departing cities and the column ariving cities
+        departingCity = int(path[i - 1])
+        arrivingCity = int(path[i])
         totalDistance += TSP[departingCity, arrivingCity]
         if totalDistance == np.inf:
-            return float("inf")
+            return 1e99999999999
+    # fitness.map[string_rep] = totalDistance
     return totalDistance
 
 
 # Calculates the mean fitness of the population and the best fitting individual (Needed for the Reporter class)
+@njit(locals={"meanfit": types.float64})
 def evaluatePopulation(TSP, population):
-    bestFit = float("inf")
-    sumFit = 0
+    bestFit = 1e99999999999
     bestIndividual = None
-    for individual in population:
-        fit = fitness(TSP, individual.path)
-        sumFit += fit
-        if fit < bestFit:
-            bestFit = fit
-            bestIndividual = individual
-    return (sumFit / population.shape[0], bestFit, bestIndividual)
+    fitnesses = np.array([fitness(TSP=TSP, path=ind) for ind in population])
+    meanfit = np.mean(fitnesses)
+    bestidx = np.argmin(fitnesses)
+    bestFit = fitnesses[bestidx]
+    bestIndividual = population[bestidx]
+    return (meanfit, bestFit, bestIndividual)
 
 
 if __name__ == "__main__":
     algorithm = r0786701()
 
-    algorithm.optimize("tour250.csv")
+    algorithm.optimize("tour29.csv")
 
