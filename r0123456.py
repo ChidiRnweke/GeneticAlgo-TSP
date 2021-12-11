@@ -248,6 +248,5 @@ def evaluatePopulation(TSP, population):
 
 if __name__ == "__main__":
     algorithm = r0786701()
-
-    algorithm.optimize("tour29.csv")
+    algorithm.optimize("tour750.csv")
 
