@@ -1,3 +1,4 @@
+from numba.np.ufunc import parallel
 import Reporter
 import numpy as np
 import random
@@ -122,7 +123,7 @@ class Individual:
         self.fitness = fitness(TSP, self.path)
 
 
-@njit(nogil=True)
+@njit()
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -137,7 +138,6 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
         best_path = candidate
         best_fit = fitness(problem, candidate)
         initial = np.copy(candidate)
-        # neighbourhood = np.empty(initial.shape[1], dtype=object)
         for i in range(initial.size):
             for j in range(i + 1, initial.size):
                 neighbour = initial.copy()
@@ -227,22 +227,19 @@ def PMX(par1: np.array, par2: np.array) -> tuple:
     parent2 = np.copy(par2)
     index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
     index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
-    indices = np.array([index1, index2])
-    splitp1 = np.array_split(parent1, indices)
-    splitp2 = np.array_split(parent2, indices)
-    o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
-    o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+    o1 = np.concatenate((parent1[:index1], parent2[index1:index2], parent1[index2:]))
+    o2 = np.concatenate((parent2[:index1], parent1[index1:index2], parent2[index2:]))
+
+    mask = np.ones_like(parent1, dtype=np.bool_)
+    mask[np.arange(index1, index2)] = False
 
     while np.unique(o1).size != o1.size:
-        for key, val in zip(splitp1[1], splitp2[1]):
-            splitp1[0][splitp1[0] == val] = key
-            splitp1[2][splitp1[2] == val] = key
-        o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
+        for key, val in zip(parent1[index1:index2], parent2[index1:index2]):
+            o1[mask] = np.where(o1[mask] == val, key, o1[mask])
+
     while np.unique(o2).size != o2.size:
-        for key, val in zip(splitp1[1], splitp2[1]):
-            splitp2[0][splitp2[0] == key] = val
-            splitp2[2][splitp2[2] == key] = val
-        o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+        for key, val in zip(parent1[index1:index2], parent2[index1:index2]):
+            o2[mask] = np.where(o2[mask] == key, val, o2[mask])
     return o1, o2
 
 
@@ -253,7 +250,7 @@ def selection(population: np.array, k: int, TSP):
     return selected[highest]
 
 
-@njit()
+@njit(fastmath=True)
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
@@ -266,17 +263,10 @@ def fitness(TSP: np.array, path: np.array) -> float:
         float: [The fitness value]
     """
     totalDistance = 0
-    # string_rep = str(path)
-    # if string_rep in fitness.map.keys():
-    #   return fitness.map[string_rep]
-    # else:
     for i in range(path.shape[0]):
         departingCity = int(path[i - 1])
         arrivingCity = int(path[i])
         totalDistance += TSP[departingCity, arrivingCity]
-        if totalDistance == np.inf:
-            return 1e99999999999
-    # fitness.map[string_rep] = totalDistance
     return totalDistance
 
 
@@ -295,5 +285,5 @@ def evaluatePopulation(TSP, population):
 
 if __name__ == "__main__":
     algorithm = r0786701()
-    algorithm.optimize("tour29.csv")
+    algorithm.optimize("tour250.csv")
 
