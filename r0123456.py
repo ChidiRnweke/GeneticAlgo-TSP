@@ -1,7 +1,10 @@
+from numba.np.ufunc import parallel
 import Reporter
 import numpy as np
-import random
-from numba import njit, types
+from numba import njit, types, prange
+import concurrent.futures
+import cProfile, pstats, io
+
 
 # Modify the class name to match your student number.
 
@@ -17,12 +20,12 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 1000
-        maxIterations = 3000
+        populationSize = 500
+        maxIterations = 100
         kTournment = 3
-        numberOfOffspring = 1000
+        numberOfOffspring = 500
         sameSolutionIterations = 20
-        mu = 0.95
+        mu = 1
         population = initialize(distanceMatrix, populationSize)
 
         iteration = 0
@@ -40,6 +43,7 @@ class r0786701:
 
             # Your code here.
             offspring = np.zeros((numberOfOffspring, distanceMatrix.shape[0]))
+
             for i in range(0, numberOfOffspring, 2):
                 parent1 = selection(population, kTournment, distanceMatrix)
                 parent2 = selection(population, kTournment, distanceMatrix)
@@ -52,10 +56,10 @@ class r0786701:
                 population, populationSize, kTournment, distanceMatrix
             )
             for individual in population:
-                individual = k_opt(individual, distanceMatrix, 2)
+                # individual = k_opt(individual, distanceMatrix, 1)
                 probability = np.random.uniform(0, 1)
                 if probability < mu:
-                    mutate(individual)
+                    individual = mutate(individual)
 
             # Call the reporter with:
             #  - the mean objective function value of the population
@@ -121,7 +125,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population[0] = greedy(TSP)
     out = []
     for row in population:
-        row = k_opt(row, TSP, 4)
+        row = k_opt(row, TSP, 2)
         out.append(row)
     return np.array(out)
 
@@ -133,6 +137,7 @@ def mutate(individual: np.array) -> None:
         individual[indices[1]],
         individual[indices[0]],
     )
+    return individual
 
 
 def greedy(distanceMatrix):
@@ -221,11 +226,13 @@ def selection(population: np.array, k: int, TSP):
     return selected[highest]
 
 
+# @njit()
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
+    start = np.arange(populationSize)
     for idx in range(numberOfSelections):
-        randomIndices = random.sample(range(populationSize), kTournment)
+        randomIndices = np.random.choice(start, size=kTournment)
         bestFit = 1e9
         bestIndice = randomIndices[0]
         for indice in randomIndices:
@@ -250,17 +257,12 @@ def fitness(TSP: np.array, path: np.array) -> float:
         float: [The fitness value]
     """
     totalDistance = 0
-    # string_rep = str(path)
-    # if string_rep in fitness.map.keys():
-    #   return fitness.map[string_rep]
-    # else:
-    for i in range(path.shape[0]):
+    for i in prange(path.shape[0]):
         departingCity = int(path[i - 1])
         arrivingCity = int(path[i])
         totalDistance += TSP[departingCity, arrivingCity]
         if totalDistance == np.inf:
             return 1e99999999999
-    # fitness.map[string_rep] = totalDistance
     return totalDistance
 
 
@@ -278,6 +280,13 @@ def evaluatePopulation(TSP, population):
 
 
 if __name__ == "__main__":
-    algorithm = r0786701()
-    algorithm.optimize("tour29.csv")
+    profiler = cProfile.Profile()
+    with open("profile.txt", "w") as f:
 
+        profiler.enable()
+        algorithm = r0786701()
+        algorithm.optimize("tour250.csv")
+        profiler.disable()
+        stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
+        stats.strip_dirs()
+        stats.print_stats()
