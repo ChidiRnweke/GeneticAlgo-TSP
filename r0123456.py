@@ -22,7 +22,7 @@ class r0786701:
                 if fit < bestFit:
                     bestFit = fit
                     bestIndice = indice
-            newPopulation[idx] = population[bestIndice].copy()
+            newPopulation[idx] = population[bestIndice]
         return newPopulation
 
     # The evolutionary algorithm's main loop
@@ -100,28 +100,6 @@ class r0786701:
         return 0
 
 
-# Class representing individuals
-
-
-class Individual:
-    def __init__(self, TSP: np.array, size: int = 0, path: np.array = None):
-        """[Initializes a new path individual with a given size. If an array is given it uses this array instead of randomizing.
-            The class has a path variable representing the chosen path as a numpy array.]
-
-        Args:
-            TSP (np.array): [The cost matrix]
-            size (int, optional): [Amount of cities]. Defaults to 0.
-            path (np.array, optional): [Initialise with a given path]. Defaults to None.
-        """
-        if path is None:
-            self.path = np.arange(size)
-            np.random.shuffle(self.path)
-        else:
-            self.path = path
-
-        self.fitness = fitness(TSP, self.path)
-
-
 @njit(nogil=True)
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
@@ -133,14 +111,13 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     Returns:
         Individual: [The best candidate in the neighbourhood]
     """
+    size = candidate.size
     for _ in range(k):
         best_path = candidate
         best_fit = fitness(problem, candidate)
-        initial = np.copy(candidate)
-        # neighbourhood = np.empty(initial.shape[1], dtype=object)
-        for i in range(initial.size):
-            for j in range(i + 1, initial.size):
-                neighbour = initial.copy()
+        for i in range(size):
+            for j in range(i + 1, size):
+                neighbour = candidate.copy()
                 neighbour[i], neighbour[j] = neighbour[j], neighbour[i]
                 fit = fitness(TSP=problem, path=neighbour)
                 best_path = neighbour if fit < best_fit else best_path
@@ -189,9 +166,7 @@ def greedy(distanceMatrix):
 
 
 @njit()
-def OX(par1: np.array, par2: np.array):
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
+def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
     cut1 = int(len(parent1) / 3)
@@ -207,7 +182,6 @@ def OX(par1: np.array, par2: np.array):
         for j in order:
             if parent2[j] not in o1:
                 o1[i] = parent2[j]
-
             if parent1[j] not in o2:
                 o2[i] = parent1[j]
 
@@ -220,11 +194,19 @@ def OX(par1: np.array, par2: np.array):
     return o1, o2
 
 
-# @njit()
-def PMX(par1: np.array, par2: np.array) -> tuple:
-    # PMX
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
+@njit()
+def PMX(parent1: np.array, parent2: np.array) -> tuple:
+    """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
+        These indices form a mapping for which elements outside of the split need to be changed to.]
+
+    Args:
+        par1 (np.array): [First parent]
+        par2 (np.array): [Second parent]
+
+    Returns:
+        tuple of numpy arrays: [Contains both offspring 1 and offspring 2]
+    """
+
     index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
     index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
     indices = np.array([index1, index2])
@@ -232,14 +214,15 @@ def PMX(par1: np.array, par2: np.array) -> tuple:
     splitp2 = np.array_split(parent2, indices)
     o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
     o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
+    mapping = set(zip(splitp1[1], splitp2[1]))
 
     while np.unique(o1).size != o1.size:
-        for key, val in zip(splitp1[1], splitp2[1]):
+        for key, val in mapping:
             splitp1[0][splitp1[0] == val] = key
             splitp1[2][splitp1[2] == val] = key
         o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
     while np.unique(o2).size != o2.size:
-        for key, val in zip(splitp1[1], splitp2[1]):
+        for key, val in mapping:
             splitp2[0][splitp2[0] == key] = val
             splitp2[2][splitp2[2] == key] = val
         o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
@@ -295,5 +278,5 @@ def evaluatePopulation(TSP, population):
 
 if __name__ == "__main__":
     algorithm = r0786701()
-    algorithm.optimize("tour29.csv")
+    algorithm.optimize("tour250.csv")
 

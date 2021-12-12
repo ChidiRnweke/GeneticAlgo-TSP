@@ -53,5 +53,29 @@ def OX(par1: np.array, par2: np.array):
     return o1, o2
 
 
-OX(a, b)
+def PMX(parent1: np.array, parent2: np.array) -> tuple:
+    # PMX
+    # parent1 = np.copy(par1)
+    # parent2 = np.copy(par2)
+    index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
+    index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
+    o1 = np.concatenate((parent1[:index1], parent2[index1:index2], parent1[index2:]))
+    o2 = np.concatenate((parent2[:index1], parent1[index1:index2], parent2[index2:]))
+
+    mask = np.ones_like(parent1, dtype=bool)
+    mask[np.arange(index1, index2)] = False
+
+    while np.unique(o1).size != o1.size:
+        for key, val in zip(parent1[index1:index2], parent2[index1:index2]):
+            o1[mask] = np.where(o1[mask] == val, key, o1[mask])
+
+    while np.unique(o2).size != o2.size:
+        for key, val in zip(parent1[index1:index2], parent2[index1:index2]):
+            o2[mask] = np.where(o2[mask] == key, val, o2[mask])
+    print(o1, o2)
+    return o1, o2
+
+
+PMX(a, b)
+PMX(b, a)
 
