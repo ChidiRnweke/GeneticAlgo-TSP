@@ -10,21 +10,6 @@ class r0786701:
     def __init__(self):
         self.reporter = Reporter.Reporter(self.__class__.__name__)
 
-    def elimination(self, population, numberOfSelections, kTournment, distanceMatrix):
-        populationSize = len(population)
-        newPopulation = np.zeros((numberOfSelections, population.shape[1]))
-        for idx in range(numberOfSelections):
-            randomIndices = random.sample(range(populationSize), kTournment)
-            bestFit = 1e9
-            bestIndice = randomIndices[0]
-            for indice in randomIndices:
-                fit = fitness(distanceMatrix, population[indice])
-                if fit < bestFit:
-                    bestFit = fit
-                    bestIndice = indice
-            newPopulation[idx] = population[bestIndice]
-        return newPopulation
-
     # The evolutionary algorithm's main loop
     def optimize(self, filename):
         # Read distance matrix from file.
@@ -32,12 +17,12 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 500
+        populationSize = 1000
         maxIterations = 3000
         kTournment = 3
-        numberOfOffspring = 500
+        numberOfOffspring = 1000
         sameSolutionIterations = 20
-        mu = 0.15
+        mu = 0.95
         population = initialize(distanceMatrix, populationSize)
 
         iteration = 0
@@ -63,11 +48,11 @@ class r0786701:
                 offspring[i + 1] = offspring2.copy()
             population = np.vstack((population, offspring))
 
-            population = self.elimination(
+            population = elimination(
                 population, populationSize, kTournment, distanceMatrix
             )
             for individual in population:
-                individual = k_opt(individual, distanceMatrix, 1)
+                individual = k_opt(individual, distanceMatrix, 2)
                 probability = np.random.uniform(0, 1)
                 if probability < mu:
                     mutate(individual)
@@ -136,7 +121,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population[0] = greedy(TSP)
     out = []
     for row in population:
-        row = k_opt(row, TSP, 1)
+        row = k_opt(row, TSP, 4)
         out.append(row)
     return np.array(out)
 
@@ -236,6 +221,22 @@ def selection(population: np.array, k: int, TSP):
     return selected[highest]
 
 
+def elimination(population, numberOfSelections, kTournment, distanceMatrix):
+    populationSize = len(population)
+    newPopulation = np.zeros((numberOfSelections, population.shape[1]))
+    for idx in range(numberOfSelections):
+        randomIndices = random.sample(range(populationSize), kTournment)
+        bestFit = 1e9
+        bestIndice = randomIndices[0]
+        for indice in randomIndices:
+            fit = fitness(distanceMatrix, population[indice])
+            if fit < bestFit:
+                bestFit = fit
+                bestIndice = indice
+        newPopulation[idx] = population[bestIndice]
+    return newPopulation
+
+
 @njit()
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
@@ -278,5 +279,5 @@ def evaluatePopulation(TSP, population):
 
 if __name__ == "__main__":
     algorithm = r0786701()
-    algorithm.optimize("tour250.csv")
+    algorithm.optimize("tour29.csv")
 
