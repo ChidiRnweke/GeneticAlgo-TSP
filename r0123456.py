@@ -264,16 +264,18 @@ def fitness(TSP: np.array, path: np.array) -> float:
 
 
 # Calculates the mean fitness of the population and the best fitting individual (Needed for the Reporter class)
-@njit(locals={"meanfit": types.float64})
+# @njit()
 def evaluatePopulation(TSP, population):
     bestFit = 1e99999999999
-    bestIndividual = None
-    fitnesses = np.array([fitness(TSP=TSP, path=ind) for ind in population])
-    meanfit = np.mean(fitnesses)
-    bestidx = np.argmin(fitnesses)
-    bestFit = fitnesses[bestidx]
-    bestIndividual = population[bestidx]
-    return (meanfit, bestFit, bestIndividual)
+    bestIndividual = population
+    totalDistance = 0
+    for row in population:
+        fit = fitness(TSP, row)
+        totalDistance += fit
+        if fit < bestFit:
+            bestFit = fit
+            bestIndividual = row
+    return (totalDistance / population.shape[0], bestFit, bestIndividual)
 
 
 if __name__ == "__main__":
