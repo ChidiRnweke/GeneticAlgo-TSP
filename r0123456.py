@@ -19,10 +19,10 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 5000
+        populationSize = 2000
         maxIterations = 1000
         kTournment = 3
-        numberOfOffspringPT = 1250
+        numberOfOffspringPT = 500
         sameSolutionIterations = 1000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
@@ -83,7 +83,7 @@ class r0786701:
         return 0
 
 
-@njit()
+@njit(nogil=True)
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
