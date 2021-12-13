@@ -1,4 +1,3 @@
-from numba.np.ufunc import parallel
 import Reporter
 import numpy as np
 from numba import njit, types, prange
@@ -25,7 +24,7 @@ class r0786701:
         kTournment = 3
         numberOfOffspring = 500
         sameSolutionIterations = 20
-        mu = 1
+        mu = 0.15
         population = initialize(distanceMatrix, populationSize)
 
         iteration = 0
@@ -40,39 +39,23 @@ class r0786701:
             meanObjective = 0.0
             bestObjective = 0.0
             bestSolution = np.array([1, 2, 3, 4, 5])
-
-            # Your code here.
-            offspring = np.zeros((numberOfOffspring, distanceMatrix.shape[0]))
-
-            for i in range(0, numberOfOffspring, 2):
-                parent1 = selection(population, kTournment, distanceMatrix)
-                parent2 = selection(population, kTournment, distanceMatrix)
-                offspring1, offspring2 = PMX(parent1, parent2)
-                offspring[i] = offspring1.copy()
-                offspring[i + 1] = offspring2.copy()
-            population = np.vstack((population, offspring))
+            population = recombination(
+                population, kTournment, distanceMatrix, numberOfOffspring
+            )
+            for individual in population:
+                probability = np.random.uniform(0, 1)
+                if probability < mu:
+                    individual = inversion_mutation(individual)
 
             population = elimination(
                 population, populationSize, kTournment, distanceMatrix
             )
-            for individual in population:
-                # individual = k_opt(individual, distanceMatrix, 1)
-                probability = np.random.uniform(0, 1)
-                if probability < mu:
-                    individual = mutate(individual)
 
-            # Call the reporter with:
-            #  - the mean objective function value of the population
-            #  - the best objective function value of the population
-            #  - a 1D numpy array in the cycle notation containing the best solution
-            #    with city numbering starting from 0
             populationEvaluation = evaluatePopulation(distanceMatrix, population)
             meanObjective = populationEvaluation[0]
             bestObjective = populationEvaluation[1]
             bestSolution = populationEvaluation[2]
             timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
-
-            # checking if the objectscore reduces or not
             difference = prevSolution - bestObjective
             if difference < tolerance:
                 sameSolutionCount += 1
@@ -116,6 +99,21 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
 # Create the initial population
 
 
+@njit()
+def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
+    offspring = np.zeros((n, distanceMatrix.shape[0]))
+
+    for i in range(0, n, 2):
+        parent1 = selection(pop, kTournment, distanceMatrix)
+        parent2 = selection(pop, kTournment, distanceMatrix)
+        offspring1, offspring2 = PMX(parent1, parent2)
+        # offspring1 = k_opt(offspring1, distanceMatrix, 1)
+        # offspring2 = k_opt(offspring2, distanceMatrix, 1)
+        offspring[i] = offspring1.copy()
+        offspring[i + 1] = offspring2.copy()
+    return np.vstack((pop, offspring))
+
+
 def initialize(TSP, populationSize: int) -> np.ndarray:
     rng = np.random.default_rng()
 
@@ -130,13 +128,19 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     return np.array(out)
 
 
-@njit()
-def mutate(individual: np.array) -> None:
+def swap_mutation(individual: np.array) -> None:
     indices = np.random.randint(low=0, high=len(individual), size=2)
     individual[indices[0]], individual[indices[1]] = (
         individual[indices[1]],
         individual[indices[0]],
     )
+    return individual
+
+
+def inversion_mutation(individual: np.array) -> None:
+    cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
+    individual[cut1:cut2] = np.flip(individual[cut1:cut2])
     return individual
 
 
@@ -159,8 +163,8 @@ def greedy(distanceMatrix):
 def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
-    cut1 = int(len(parent1) / 3)
-    cut2 = int(len(parent1) * 2 / 3)
+    cut1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 2, high=parent1.shape[0] - 1)
     order = np.concatenate(
         (np.arange(cut2, len(parent1)), np.arange(cut1), np.arange(cut1, cut2))
     )
@@ -219,11 +223,18 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
+@njit()
 def selection(population: np.array, k: int, TSP):
-    rng = np.random.default_rng()
-    selected = rng.choice(population, k, axis=0)
-    highest = np.argmin([fitness(TSP=TSP, path=ind) for ind in selected])
-    return selected[highest]
+    indices = np.random.choice(np.arange(population.shape[0]), k)
+    selected = population[indices]
+    highest = population[0]
+    bestfit = 1e9
+    for row in selected:
+        fit = fitness(TSP, row)
+        if fit > bestfit:
+            bestfit = fit
+            highest = row
+    return highest
 
 
 # @njit()
@@ -285,7 +296,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour250.csv")
+        algorithm.optimize("tour29.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
