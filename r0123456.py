@@ -2,7 +2,7 @@ import Reporter
 import numpy as np
 from numba import njit, types, prange
 import cProfile, pstats
-from concurrent import futures
+from dask import delayed
 
 # Modify the class name to match your student number.
 
@@ -18,11 +18,11 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 200
-        maxIterations = 1e9
+        populationSize = 400
+        maxIterations = 100
         kTournment = 3
-        numberOfOffspring = 200
-        sameSolutionIterations = 1000
+        numberOfOffspringPT = 400
+        sameSolutionIterations = 100
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -39,14 +39,14 @@ class r0786701:
             bestObjective = 0.0
             bestSolution = np.array([1, 2, 3, 4, 5])
 
-            population = recombination(
-                population, kTournment, distanceMatrix, numberOfOffspring
-            )
-
-            for individual in population:
-                probability = np.random.uniform(0, 1)
-                if probability < mu:
-                    individual = inversion_mutation(individual)
+            results = []
+            for i in range(4):
+                pop_part = delayed(recombination)(
+                    population, kTournment, distanceMatrix, numberOfOffspringPT
+                )
+                results.append(pop_part)
+            pop_test = delayed(np.vstack)(results)
+            population = pop_test.compute()
 
             population = elimination(
                 population, populationSize, kTournment, distanceMatrix
@@ -73,7 +73,7 @@ class r0786701:
         return 0
 
 
-@njit()
+@njit(nogil=True)
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -103,7 +103,6 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
 @njit(nogil=True)
 def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
     offspring = np.zeros((n, distanceMatrix.shape[0]))
-
     for i in range(0, n, 2):
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
@@ -112,7 +111,12 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
         # offspring2 = k_opt(offspring2, distanceMatrix, 1)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
-    return np.vstack((pop, offspring))
+    merged = np.vstack((pop, offspring))
+    for individual in merged:
+        probability = np.random.uniform(0, 1)
+        if probability < 0.15:
+            individual = inversion_mutation(individual)
+    return merged
 
 
 def initialize(TSP, populationSize: int) -> np.ndarray:
@@ -138,6 +142,7 @@ def swap_mutation(individual: np.array) -> None:
     return individual
 
 
+@njit(nogil=True)
 def inversion_mutation(individual: np.array) -> None:
     cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
     cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
@@ -160,7 +165,7 @@ def greedy(distanceMatrix):
     return solution
 
 
-@njit()
+@njit(nogil=True)
 def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
@@ -234,7 +239,7 @@ def CX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-@njit()
+@njit(nogil=True)
 def PMX(parent1: np.array, parent2: np.array) -> tuple:
     """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
         These indices form a mapping for which elements outside of the split need to be changed to.]
@@ -269,7 +274,7 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
-@njit()
+@njit(nogil=True)
 def selection(population: np.array, k: int, TSP):
     indices = np.random.choice(np.arange(population.shape[0]), k)
     selected = population[indices]
@@ -283,7 +288,7 @@ def selection(population: np.array, k: int, TSP):
     return highest
 
 
-@njit()
+@njit(nogil=True)
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
@@ -301,7 +306,7 @@ def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     return newPopulation
 
 
-@njit()
+@njit(nogil=True)
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
