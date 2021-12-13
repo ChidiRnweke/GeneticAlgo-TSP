@@ -4,6 +4,7 @@ from numba import njit, types, prange
 import cProfile, pstats
 from dask import delayed
 
+
 # Modify the class name to match your student number.
 
 
@@ -18,10 +19,10 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 400
+        populationSize = 5000
         maxIterations = 100
         kTournment = 3
-        numberOfOffspringPT = 400
+        numberOfOffspringPT = 1250
         sameSolutionIterations = 100
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
@@ -40,6 +41,7 @@ class r0786701:
             bestSolution = np.array([1, 2, 3, 4, 5])
 
             results = []
+
             for i in range(4):
                 pop_part = delayed(recombination)(
                     population, kTournment, distanceMatrix, numberOfOffspringPT
@@ -347,7 +349,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour250.csv")
+        algorithm.optimize("tour29.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
