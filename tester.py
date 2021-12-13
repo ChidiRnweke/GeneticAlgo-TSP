@@ -1,14 +1,19 @@
 import numpy as np
 
-a = np.array((1, 2, 3, 4, 5, 6, 7, 8))
-b = np.array((2, 4, 6, 8, 7, 5, 3, 1))
+a = np.array((1, 2, 3, 4, 5, 6, 7, 8, 9))
+b = np.array((9, 3, 7, 8, 2, 6, 5, 1, 4))
+
+c = np.array((3, 4, 6, 8, 1, 2, 9, 7, 5))
+d = np.array((2, 7, 1, 9, 5, 3, 6, 4, 8))
 
 
-def CX(par1: np.array, par2: np.array):
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
+def CX(parent1: np.array, parent2: np.array):
+    initialp1 = parent1.copy()
+    initialp2 = parent2.copy()
     to_check = np.arange(1, len(parent1))
     o1 = np.empty_like(parent1)
+    o2 = np.empty_like(parent1)
+
     value = parent1[0]
     o1[0] = parent1[0]
     to_check = np.delete(to_check, 0)
@@ -20,9 +25,31 @@ def CX(par1: np.array, par2: np.array):
             value = next.copy()
             to_check = np.delete(to_check, np.argwhere(to_check == next))
         else:
+            parent1, parent2 = parent2, parent1
             value = to_check[0]
             continue
-    return o1
+
+    parent1 = initialp2.copy()
+    parent2 = initialp1.copy()
+    to_check = np.arange(1, len(parent1))
+
+    value = parent1[0]
+    o2[0] = parent1[0]
+    to_check = np.delete(to_check, 0)
+    while to_check.size > 0:
+        pos = int(np.argwhere(parent2 == value))
+        next = parent1[pos]
+        if next not in o2:
+            o2[pos] = next
+            value = next.copy()
+            to_check = np.delete(to_check, np.argwhere(to_check == next))
+        else:
+            parent1, parent2 = parent2, parent1
+            value = to_check[0]
+            continue
+    parent1, parent2 = initialp1, initialp2
+
+    return o1, o2
 
 
 def OX(par1: np.array, par2: np.array):
@@ -30,8 +57,8 @@ def OX(par1: np.array, par2: np.array):
     parent2 = np.copy(par2)
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
-    cut1 = int(len(parent1) / 3)
-    cut2 = int(len(parent1) * 2 / 3)
+    cut1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 2, high=parent1.shape[0] - 1)
     order = np.concatenate(
         (np.arange(cut2, len(parent1)), np.arange(cut1), np.arange(cut1, cut2))
     )
@@ -76,6 +103,12 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
-PMX(a, b)
-PMX(b, a)
+def inversion_mutation(individual: np.array) -> None:
+    cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
+    individual[cut1:cut2] = np.flip(individual[cut1:cut2])
+    return individual
+
+
+print(CX(a, b))
 

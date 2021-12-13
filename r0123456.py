@@ -1,8 +1,7 @@
 import Reporter
 import numpy as np
 from numba import njit, types, prange
-import concurrent.futures
-import cProfile, pstats, io
+import cProfile, pstats
 
 
 # Modify the class name to match your student number.
@@ -19,12 +18,12 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 500
-        maxIterations = 100
+        populationSize = 10000
+        maxIterations = 1e9
         kTournment = 3
-        numberOfOffspring = 500
+        numberOfOffspring = 10000
         sameSolutionIterations = 20
-        mu = 0.15
+        mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
         iteration = 0
@@ -72,7 +71,7 @@ class r0786701:
         return 0
 
 
-@njit(nogil=True)
+@njit()
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -123,7 +122,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population[0] = greedy(TSP)
     out = []
     for row in population:
-        row = k_opt(row, TSP, 2)
+        # row = k_opt(row, TSP, 1)
         out.append(row)
     return np.array(out)
 
@@ -237,7 +236,7 @@ def selection(population: np.array, k: int, TSP):
     return highest
 
 
-# @njit()
+@njit()
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
@@ -296,7 +295,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour29.csv")
+        algorithm.optimize("tour250.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
