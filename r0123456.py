@@ -20,10 +20,10 @@ class r0786701:
         file.close()
         # Parameters
         populationSize = 5000
-        maxIterations = 100
+        maxIterations = 1000
         kTournment = 3
         numberOfOffspringPT = 1250
-        sameSolutionIterations = 100
+        sameSolutionIterations = 1000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -42,13 +42,13 @@ class r0786701:
 
             results = []
 
-            for i in range(4):
+            for _ in range(4):
                 pop_part = delayed(recombination)(
                     population, kTournment, distanceMatrix, numberOfOffspringPT
                 )
                 results.append(pop_part)
             pop_test = delayed(np.vstack)(results)
-            population = pop_test.compute()
+            population = pop_test.compute(scheduler="threads", num_workers=4)
 
             population = elimination(
                 population, populationSize, kTournment, distanceMatrix
@@ -116,8 +116,8 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.15:
-            individual = inversion_mutation(individual)
+        if probability < 0.3:
+            individual = swap_mutation(individual)
     return merged
 
 
@@ -135,13 +135,20 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     return np.array(out)
 
 
+@njit()
 def swap_mutation(individual: np.array) -> None:
     indices = np.random.randint(low=0, high=len(individual), size=2)
     individual[indices[0]], individual[indices[1]] = (
         individual[indices[1]],
         individual[indices[0]],
     )
-    return individual
+    probability = np.random.uniform(0, 1)
+    if probability > 0.05:
+        inversion_mutation(individual)
+    elif probability > 0.5:
+        swap_mutation(individual)
+    else:
+        return
 
 
 @njit(nogil=True)
@@ -149,7 +156,7 @@ def inversion_mutation(individual: np.array) -> None:
     cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
     cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
     individual[cut1:cut2] = np.flip(individual[cut1:cut2])
-    return individual
+    return
 
 
 def greedy(distanceMatrix):
@@ -179,18 +186,23 @@ def OX(parent1: np.array, parent2: np.array):
     to_check = order[: cut1 - cut2]
     o1[cut1:cut2] = parent1[cut1:cut2]
     o2[cut1:cut2] = parent2[cut1:cut2]
+    set_1 = set(parent1[cut1:cut2])
+    set_2 = set(parent2[cut1:cut2])
+
     j = 0
     for i in to_check:
         for j in order:
-            if parent2[j] not in o1:
+            if parent2[j] not in set_1:
                 o1[i] = parent2[j]
+                set_1.add(parent2[j])
                 break
 
     j = 0
     for i in to_check:
         for j in order:
-            if parent1[j] not in o2:
+            if parent1[j] not in set_2:
                 o2[i] = parent1[j]
+                set_2.add(parent1[j])
                 break
     return o1, o2
 

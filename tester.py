@@ -52,9 +52,7 @@ def CX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-def OX(par1: np.array, par2: np.array):
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
+def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
     cut1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
@@ -65,17 +63,23 @@ def OX(par1: np.array, par2: np.array):
     to_check = order[: cut1 - cut2]
     o1[cut1:cut2] = parent1[cut1:cut2]
     o2[cut1:cut2] = parent2[cut1:cut2]
+    set_1 = set(o1)
+    set_2 = set(o2)
+
+    j = 0
     for i in to_check:
-        j = 0
         for j in order:
-            if parent2[j] not in o1:
+            if parent2[j] not in set_1:
                 o1[i] = parent2[j]
+                set_1.add(parent2[j])
                 break
+
+    j = 0
     for i in to_check:
-        j = 0
         for j in order:
-            if parent1[j] not in o2:
+            if parent1[j] not in set_2:
                 o2[i] = parent1[j]
+                set_2.add(parent1[j])
                 break
     return o1, o2
 
