@@ -20,10 +20,10 @@ class r0786701:
         file.close()
         # Parameters
         populationSize = 5000
-        maxIterations = 100
+        maxIterations = 100000
         kTournment = 3
-        numberOfOffspringPT = 1250
-        sameSolutionIterations = 100
+        numberOfOffspringPT = 5000
+        sameSolutionIterations = 10000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -40,15 +40,9 @@ class r0786701:
             bestObjective = 0.0
             bestSolution = np.array([1, 2, 3, 4, 5])
 
-            results = []
-
-            for i in range(4):
-                pop_part = delayed(recombination)(
-                    population, kTournment, distanceMatrix, numberOfOffspringPT
-                )
-                results.append(pop_part)
-            pop_test = delayed(np.vstack)(results)
-            population = pop_test.compute()
+            population = recombination(
+                population, kTournment, distanceMatrix, numberOfOffspringPT
+            )
 
             population = elimination(
                 population, populationSize, kTournment, distanceMatrix
@@ -75,7 +69,7 @@ class r0786701:
         return 0
 
 
-@njit(nogil=True)
+@njit()
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -102,7 +96,7 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
 # Create the initial population
 
 
-@njit(nogil=True)
+@njit()
 def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
     offspring = np.zeros((n, distanceMatrix.shape[0]))
     for i in range(0, n, 2):
@@ -144,7 +138,7 @@ def swap_mutation(individual: np.array) -> None:
     return individual
 
 
-@njit(nogil=True)
+@njit()
 def inversion_mutation(individual: np.array) -> None:
     cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
     cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
@@ -167,7 +161,7 @@ def greedy(distanceMatrix):
     return solution
 
 
-@njit(nogil=True)
+@njit()
 def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
@@ -195,7 +189,7 @@ def OX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-# @njit(nogil=True)
+# @njit()
 def CX(parent1: np.array, parent2: np.array):
     initialp1 = parent1.copy()
     initialp2 = parent2.copy()
@@ -241,7 +235,7 @@ def CX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-@njit(nogil=True)
+@njit()
 def PMX(parent1: np.array, parent2: np.array) -> tuple:
     """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
         These indices form a mapping for which elements outside of the split need to be changed to.]
@@ -276,7 +270,7 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
-@njit(nogil=True)
+@njit()
 def selection(population: np.array, k: int, TSP):
     indices = np.random.choice(np.arange(population.shape[0]), k)
     selected = population[indices]
@@ -290,7 +284,7 @@ def selection(population: np.array, k: int, TSP):
     return highest
 
 
-@njit(nogil=True)
+@njit()
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
@@ -308,7 +302,7 @@ def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     return newPopulation
 
 
-@njit(nogil=True)
+@njit()
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
