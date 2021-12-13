@@ -47,6 +47,14 @@ class r0786701:
                     population, kTournment, distanceMatrix, numberOfOffspringPT
                 )
                 results.append(pop_part)
+            pop_test = delayed(list)(results)
+            population = pop_test.compute(scheduler="threads", num_workers=4)
+
+            results = []
+            for partition in population:
+                for individual in partition:
+                    opt = delayed(k_opt)(individual, distanceMatrix, 1)
+                    results.append(opt)
             pop_test = delayed(np.vstack)(results)
             population = pop_test.compute(scheduler="threads", num_workers=4)
 
@@ -75,7 +83,7 @@ class r0786701:
         return 0
 
 
-@njit(nogil=True)
+@njit()
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -109,8 +117,6 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
         offspring1, offspring2 = OX(parent1, parent2)
-        # offspring1 = k_opt(offspring1, distanceMatrix, 1)
-        # offspring2 = k_opt(offspring2, distanceMatrix, 1)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     merged = np.vstack((pop, offspring))
@@ -151,7 +157,7 @@ def swap_mutation(individual: np.array) -> None:
         return
 
 
-@njit(nogil=True)
+@njit()
 def inversion_mutation(individual: np.array) -> None:
     cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
     cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
@@ -174,7 +180,7 @@ def greedy(distanceMatrix):
     return solution
 
 
-@njit(nogil=True)
+@njit()
 def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
@@ -183,7 +189,8 @@ def OX(parent1: np.array, parent2: np.array):
     order = np.concatenate(
         (np.arange(cut2, len(parent1)), np.arange(cut1), np.arange(cut1, cut2))
     )
-    to_check = order[: cut1 - cut2]
+
+    to_check = set(order[: cut1 - cut2])
     o1[cut1:cut2] = parent1[cut1:cut2]
     o2[cut1:cut2] = parent2[cut1:cut2]
     set_1 = set(parent1[cut1:cut2])
@@ -253,7 +260,7 @@ def CX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-@njit(nogil=True)
+@njit()
 def PMX(parent1: np.array, parent2: np.array) -> tuple:
     """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
         These indices form a mapping for which elements outside of the split need to be changed to.]
@@ -288,7 +295,7 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
-@njit(nogil=True)
+@njit()
 def selection(population: np.array, k: int, TSP):
     indices = np.random.choice(np.arange(population.shape[0]), k)
     selected = population[indices]
@@ -302,7 +309,7 @@ def selection(population: np.array, k: int, TSP):
     return highest
 
 
-@njit(nogil=True)
+@njit()
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
@@ -320,7 +327,7 @@ def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     return newPopulation
 
 
-@njit(nogil=True)
+@njit()
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
@@ -333,7 +340,7 @@ def fitness(TSP: np.array, path: np.array) -> float:
         float: [The fitness value]
     """
     totalDistance = 0
-    for i in prange(path.shape[0]):
+    for i in range(path.shape[0]):
         departingCity = int(path[i - 1])
         arrivingCity = int(path[i])
         totalDistance += TSP[departingCity, arrivingCity]
