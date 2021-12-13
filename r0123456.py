@@ -23,7 +23,7 @@ class r0786701:
         maxIterations = 1000
         kTournment = 3
         numberOfOffspringPT = 500
-        sameSolutionIterations = 1000
+        sameSolutionIterations = 10
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
