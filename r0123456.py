@@ -2,6 +2,7 @@ import Reporter
 import numpy as np
 from numba import njit, types, prange
 import cProfile, pstats
+from joblib import parallel, delayed
 
 
 # Modify the class name to match your student number.
@@ -18,10 +19,10 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 10000
+        populationSize = 200
         maxIterations = 1e9
         kTournment = 3
-        numberOfOffspring = 10000
+        numberOfOffspring = 200
         sameSolutionIterations = 20
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
@@ -41,6 +42,7 @@ class r0786701:
             population = recombination(
                 population, kTournment, distanceMatrix, numberOfOffspring
             )
+
             for individual in population:
                 probability = np.random.uniform(0, 1)
                 if probability < mu:
@@ -105,9 +107,9 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
     for i in range(0, n, 2):
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
-        offspring1, offspring2 = PMX(parent1, parent2)
-        # offspring1 = k_opt(offspring1, distanceMatrix, 1)
-        # offspring2 = k_opt(offspring2, distanceMatrix, 1)
+        offspring1, offspring2 = OX(parent1, parent2)
+        offspring1 = k_opt(offspring1, distanceMatrix, 1)
+        offspring2 = k_opt(offspring2, distanceMatrix, 1)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     return np.vstack((pop, offspring))
@@ -122,7 +124,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population[0] = greedy(TSP)
     out = []
     for row in population:
-        # row = k_opt(row, TSP, 1)
+        row = k_opt(row, TSP, 4)
         out.append(row)
     return np.array(out)
 
@@ -184,6 +186,52 @@ def OX(parent1: np.array, parent2: np.array):
             if parent1[j] not in o2:
                 o2[i] = parent1[j]
                 break
+    return o1, o2
+
+
+# @njit()
+def CX(parent1: np.array, parent2: np.array):
+    initialp1 = parent1.copy()
+    initialp2 = parent2.copy()
+    to_check = np.arange(1, len(parent1))
+    o1 = np.empty_like(parent1)
+    o2 = np.empty_like(parent1)
+
+    value = parent1[0]
+    o1[0] = parent1[0]
+    to_check = np.delete(to_check, 0)
+    while to_check.size > 0:
+        pos = int(np.argwhere(parent2 == value))
+        next = parent1[pos]
+        if next not in o1:
+            o1[pos] = next
+            value = next.copy()
+            to_check = np.delete(to_check, np.argwhere(to_check == next))
+        else:
+            parent1, parent2 = parent2, parent1
+            value = to_check[0]
+            continue
+
+    parent1 = initialp2.copy()
+    parent2 = initialp1.copy()
+    to_check = np.arange(1, len(parent1))
+
+    value = parent1[0]
+    o2[0] = parent1[0]
+    to_check = np.delete(to_check, 0)
+    while to_check.size > 0:
+        pos = int(np.argwhere(parent2 == value))
+        next = parent1[pos]
+        if next not in o2:
+            o2[pos] = next
+            value = next.copy()
+            to_check = np.delete(to_check, np.argwhere(to_check == next))
+        else:
+            parent1, parent2 = parent2, parent1
+            value = to_check[0]
+            continue
+    parent1, parent2 = initialp1, initialp2
+
     return o1, o2
 
 
@@ -295,7 +343,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour250.csv")
+        algorithm.optimize("tour29.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
