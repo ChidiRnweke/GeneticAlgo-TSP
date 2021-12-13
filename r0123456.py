@@ -348,3 +348,4 @@ if __name__ == "__main__":
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
         stats.print_stats()
+f
