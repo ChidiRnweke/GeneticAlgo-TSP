@@ -2,8 +2,7 @@ import Reporter
 import numpy as np
 from numba import njit, types, prange
 import cProfile, pstats
-from joblib import parallel, delayed
-
+from concurrent import futures
 
 # Modify the class name to match your student number.
 
@@ -23,7 +22,7 @@ class r0786701:
         maxIterations = 1e9
         kTournment = 3
         numberOfOffspring = 200
-        sameSolutionIterations = 20
+        sameSolutionIterations = 1000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -39,9 +38,21 @@ class r0786701:
             meanObjective = 0.0
             bestObjective = 0.0
             bestSolution = np.array([1, 2, 3, 4, 5])
-            population = recombination(
-                population, kTournment, distanceMatrix, numberOfOffspring
-            )
+
+            with futures.ThreadPoolExecutor(max_workers=4) as executor:
+                pop1 = executor.submit(
+                    recombination, population, kTournment, distanceMatrix, 50,
+                ).result()
+                pop2 = executor.submit(
+                    recombination, population, kTournment, distanceMatrix, 50,
+                ).result()
+                pop3 = executor.submit(
+                    recombination, population, kTournment, distanceMatrix, 50,
+                ).result()
+                pop4 = executor.submit(
+                    recombination, population, kTournment, distanceMatrix, 50,
+                ).result()
+            population = np.vstack((pop1, pop2, pop3, pop4))
 
             for individual in population:
                 probability = np.random.uniform(0, 1)
@@ -73,7 +84,7 @@ class r0786701:
         return 0
 
 
-@njit()
+@njit(nogil=True)
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -100,7 +111,7 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
 # Create the initial population
 
 
-@njit()
+@njit(nogil=True)
 def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
     offspring = np.zeros((n, distanceMatrix.shape[0]))
 
@@ -108,8 +119,8 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
         offspring1, offspring2 = OX(parent1, parent2)
-        offspring1 = k_opt(offspring1, distanceMatrix, 1)
-        offspring2 = k_opt(offspring2, distanceMatrix, 1)
+        # offspring1 = k_opt(offspring1, distanceMatrix, 1)
+        # offspring2 = k_opt(offspring2, distanceMatrix, 1)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     return np.vstack((pop, offspring))
@@ -124,7 +135,7 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population[0] = greedy(TSP)
     out = []
     for row in population:
-        row = k_opt(row, TSP, 4)
+        # row = k_opt(row, TSP, 1)
         out.append(row)
     return np.array(out)
 
@@ -177,8 +188,7 @@ def OX(parent1: np.array, parent2: np.array):
         for j in order:
             if parent2[j] not in o1:
                 o1[i] = parent2[j]
-            if parent1[j] not in o2:
-                o2[i] = parent1[j]
+                break
 
     j = 0
     for i in to_check:
@@ -189,7 +199,7 @@ def OX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-# @njit()
+# @njit(nogil=True)
 def CX(parent1: np.array, parent2: np.array):
     initialp1 = parent1.copy()
     initialp2 = parent2.copy()
@@ -343,9 +353,9 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour29.csv")
+        algorithm.optimize("tour250.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
         stats.print_stats()
-f
+
