@@ -39,20 +39,9 @@ class r0786701:
             bestObjective = 0.0
             bestSolution = np.array([1, 2, 3, 4, 5])
 
-            with futures.ThreadPoolExecutor(max_workers=4) as executor:
-                pop1 = executor.submit(
-                    recombination, population, kTournment, distanceMatrix, 50,
-                ).result()
-                pop2 = executor.submit(
-                    recombination, population, kTournment, distanceMatrix, 50,
-                ).result()
-                pop3 = executor.submit(
-                    recombination, population, kTournment, distanceMatrix, 50,
-                ).result()
-                pop4 = executor.submit(
-                    recombination, population, kTournment, distanceMatrix, 50,
-                ).result()
-            population = np.vstack((pop1, pop2, pop3, pop4))
+            population = recombination(
+                population, kTournment, distanceMatrix, numberOfOffspring
+            )
 
             for individual in population:
                 probability = np.random.uniform(0, 1)
@@ -84,7 +73,7 @@ class r0786701:
         return 0
 
 
-@njit(nogil=True)
+@njit()
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
