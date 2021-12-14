@@ -1,15 +1,9 @@
-from numpy.lib.function_base import vectorize
 import Reporter
 import numpy as np
-<<<<<<< HEAD
-import random
 from numba import njit, types
-=======
-from numba import njit, types, prange
 import cProfile, pstats
 from dask import delayed
 
->>>>>>> restored
 
 # Modify the class name to match your student number.
 
@@ -18,24 +12,6 @@ class r0786701:
     def __init__(self):
         self.reporter = Reporter.Reporter(self.__class__.__name__)
 
-<<<<<<< HEAD
-    def elimination(self, population, numberOfSelections, kTournment, distanceMatrix):
-        populationSize = len(population)
-        newPopulation = np.zeros((numberOfSelections, population.shape[1]))
-        for idx in range(numberOfSelections):
-            randomIndices = random.sample(range(populationSize), kTournment)
-            bestFit = 1e9
-            bestIndice = randomIndices[0]
-            for indice in randomIndices:
-                fit = fitness(distanceMatrix, population[indice])
-                if fit < bestFit:
-                    bestFit = fit
-                    bestIndice = indice
-            newPopulation[idx] = population[bestIndice].copy()
-        return newPopulation
-
-=======
->>>>>>> restored
     # The evolutionary algorithm's main loop
     def optimize(self, filename):
         # Read distance matrix from file.
@@ -44,21 +20,12 @@ class r0786701:
         file.close()
 
         # Parameters
-<<<<<<< HEAD
-        populationSize = 1000
-        maxIterations = 3000
-        kTournment = 3
-        numberOfOffspring = 500
-        sameSolutionIterations = 20
-        mu = 0.15
-=======
         populationSize = 2000
         maxIterations = 1000
         kTournment = 3
         numberOfOffspringPT = 500
         sameSolutionIterations = 10
         mu = 0.3
->>>>>>> restored
         population = initialize(distanceMatrix, populationSize)
 
         iteration = 0
@@ -75,22 +42,8 @@ class r0786701:
         while iteration < maxIterations and sameSolutionCount < sameSolutionIterations:
             meanObjective = 0.0
             bestObjective = 0.0
-            population = main_loop(population, distanceMatrix)
             bestSolution = np.array([1, 2, 3, 4, 5])
 
-<<<<<<< HEAD
-            # Your code here.
-            offspring = np.zeros((numberOfOffspring, distanceMatrix.shape[0]))
-            for i in range(0, numberOfOffspring, 2):
-                parent1 = selection(population, kTournment, distanceMatrix)
-                parent2 = selection(population, kTournment, distanceMatrix)
-                offspring1, offspring2 = PMX(parent1, parent2)
-                offspring[i] = offspring1.copy()
-                offspring[i + 1] = offspring2.copy()
-            population = np.vstack((population, offspring))
-
-            population = self.elimination(
-=======
             results = []
 
             for _ in range(4):
@@ -110,7 +63,6 @@ class r0786701:
             population = pop_test.compute(scheduler="threads", num_workers=4)
 
             population = elimination(
->>>>>>> restored
                 population, populationSize, kTournment, distanceMatrix
             )
 
@@ -135,11 +87,7 @@ class r0786701:
         return 0
 
 
-<<<<<<< HEAD
-@njit()
-=======
 @njit(nogil=True)
->>>>>>> restored
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -184,18 +132,12 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
 
 
 def initialize(TSP, populationSize: int) -> np.ndarray:
-    rng = np.random.default_rng()
     population = np.arange(TSP.shape[1])
     population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
-    population = rng.permuted(population, axis=1)
     population[0] = greedy(TSP)
     out = []
     for row in population:
-<<<<<<< HEAD
-        row = k_opt(row, TSP, 1)
-=======
         # row = k_opt(row, TSP, 1)
->>>>>>> restored
         out.append(row)
     return np.array(out)
 
@@ -324,60 +266,6 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
         These indices form a mapping for which elements outside of the split need to be changed to.]
 
-<<<<<<< HEAD
-def greedy(distanceMatrix):
-    solution = np.empty(distanceMatrix.shape[0])
-    dm = np.where(distanceMatrix != 0, distanceMatrix, np.inf)
-    minimum = np.unravel_index(dm.argmin(), dm.shape)
-    solution[0] = minimum[0]
-    solution[1] = minimum[1]
-    dm[:, minimum] = np.inf
-    minimum = minimum[1]
-    for index in range(2, distanceMatrix.shape[0]):
-        minimum = np.argmin(dm[minimum, :])
-        solution[index] = minimum
-        dm[:, minimum] = np.inf
-    return solution
-
-
-@njit()
-def OX(par1: np.array, par2: np.array):
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
-    o1 = np.empty_like(parent1)
-    o2 = np.empty_like(parent1)
-    cut1 = int(len(parent1) / 3)
-    cut2 = int(len(parent1) * 2 / 3)
-    order = np.concatenate(
-        (np.arange(cut2, len(parent1)), np.arange(cut1), np.arange(cut1, cut2))
-    )
-    to_check = order[: cut1 - cut2]
-    o1[cut1:cut2] = parent1[cut1:cut2]
-    o2[cut1:cut2] = parent2[cut1:cut2]
-    j = 0
-    for i in to_check:
-        for j in order:
-            if parent2[j] not in o1:
-                o1[i] = parent2[j]
-
-            if parent1[j] not in o2:
-                o2[i] = parent1[j]
-
-    j = 0
-    for i in to_check:
-        for j in order:
-            if parent1[j] not in o2:
-                o2[i] = parent1[j]
-                break
-    return o1, o2
-
-
-# @njit()
-def PMX(par1: np.array, par2: np.array) -> tuple:
-    # PMX
-    parent1 = np.copy(par1)
-    parent2 = np.copy(par2)
-=======
     Args:
         par1 (np.array): [First parent]
         par2 (np.array): [Second parent]
@@ -386,7 +274,6 @@ def PMX(par1: np.array, par2: np.array) -> tuple:
         tuple of numpy arrays: [Contains both offspring 1 and offspring 2]
     """
 
->>>>>>> restored
     index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
     index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
     indices = np.array([index1, index2])
@@ -411,16 +298,6 @@ def PMX(par1: np.array, par2: np.array) -> tuple:
 
 @njit()
 def selection(population: np.array, k: int, TSP):
-<<<<<<< HEAD
-    idx = np.random.choice(population.shape[0], size=k)
-    selected = population[idx, :]
-    # highest = np.argmin([fitness(TSP=TSP, path=ind) for ind in selected])
-    bestfit = 1e9
-    highest = np.empty_like(selected[0])
-    for row in selected:
-        fit = fitness(TSP, row)
-        if fit < bestfit:
-=======
     indices = np.random.choice(np.arange(population.shape[0]), k)
     selected = population[indices]
     highest = population[0]
@@ -429,7 +306,6 @@ def selection(population: np.array, k: int, TSP):
         fit = fitness(TSP, row)
         if fit > bestfit:
             bestfit = fit
->>>>>>> restored
             highest = row
     return highest
 
@@ -438,14 +314,9 @@ def selection(population: np.array, k: int, TSP):
 def elimination(population, numberOfSelections, kTournment, distanceMatrix):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]))
-<<<<<<< HEAD
-    for idx in range(numberOfSelections):
-        randomIndices = np.random.choice(population.shape[0], size=kTournment)
-=======
     start = np.arange(populationSize)
     for idx in range(numberOfSelections):
         randomIndices = np.random.choice(start, size=kTournment)
->>>>>>> restored
         bestFit = 1e9
         bestIndice = randomIndices[0]
         for indice in randomIndices:
@@ -453,11 +324,7 @@ def elimination(population, numberOfSelections, kTournment, distanceMatrix):
             if fit < bestFit:
                 bestFit = fit
                 bestIndice = indice
-<<<<<<< HEAD
-        newPopulation[idx] = population[bestIndice].copy()
-=======
         newPopulation[idx] = population[bestIndice]
->>>>>>> restored
     return newPopulation
 
 
@@ -511,34 +378,8 @@ def evaluatePopulation(TSP, population):
     return (meanfit, bestFit, bestIndividual)
 
 
-def main_loop(population: np.array, distanceMatrix: np.array):
-    kTournment = 3
-    numberOfOffspring = 1000
-    mu = 0.15
-    size = population.shape[0]
-    offspring = np.zeros((numberOfOffspring, distanceMatrix.shape[0]))
-    for i in range(0, numberOfOffspring, 2):
-        parent1 = selection(population, kTournment, distanceMatrix)
-        parent2 = selection(population, kTournment, distanceMatrix)
-        offspring1, offspring2 = recombination(distanceMatrix, parent1, parent2)
-        offspring[i] = offspring1.copy()
-        offspring[i + 1] = offspring2.copy()
-    population = np.vstack((population, offspring))
-
-    population = elimination(population, size, kTournment, distanceMatrix)
-    for individual in population:
-        individual = k_opt(individual, distanceMatrix, 1)
-        probability = np.random.uniform(0, 1)
-        if probability < mu:
-            mutate(individual)
-    return population
-
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    algorithm = r0786701()
-    algorithm.optimize("tour29.csv")
-=======
     profiler = cProfile.Profile()
     with open("profile.txt", "w") as f:
 
@@ -549,5 +390,4 @@ if __name__ == "__main__":
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
         stats.print_stats()
->>>>>>> restored
 
