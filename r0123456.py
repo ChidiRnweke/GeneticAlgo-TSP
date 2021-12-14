@@ -129,7 +129,6 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
 
 def initialize(TSP, populationSize: int) -> np.ndarray:
     rng = np.random.default_rng()
-
     population = np.arange(TSP.shape[1])
     population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
     population = rng.permuted(population, axis=1)
