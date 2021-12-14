@@ -41,7 +41,10 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
+<<<<<<< HEAD
 *.csv
+=======
+>>>>>>> 3120b3ea1f57f5203c8419b243dcf97171564f70
 .coverage
 .coverage.*
 .cache
@@ -128,6 +131,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+<<<<<<< HEAD
 .vscode/settings.json
 r0123456.csv
 profile.txt
+=======
+>>>>>>> 3120b3ea1f57f5203c8419b243dcf97171564f70
