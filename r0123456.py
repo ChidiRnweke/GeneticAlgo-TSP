@@ -1,3 +1,4 @@
+from hashlib import new
 import Reporter
 import numpy as np
 from numba import njit, types
@@ -20,12 +21,13 @@ class r0786701:
         file.close()
         # Parameters
         populationSize = 5000
-        maxIterations = 1000
-        kTournment = 7
+        maxIterations = 5000
+        kTournment = 10
         numberOfOffspringPT = 1250
         sameSolutionIterations = 50
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
+        elite = population[0].copy()
 
         iteration = 0
         meanObjective = 1.0
@@ -53,13 +55,13 @@ class r0786701:
             results = []
 
             for partition in population:
-                opt = delayed(rand_opt)(partition, distanceMatrix, max_depth=7)
+                opt = delayed(rand_opt)(partition, distanceMatrix)
                 results.append(opt)
             pop_lazy = delayed(np.vstack)(results)
             population = pop_lazy.compute(scheduler="threads", num_workers=4)
 
             population = elimination(
-                population, populationSize, kTournment, distanceMatrix
+                population, populationSize, kTournment, distanceMatrix, elite
             )
 
             populationEvaluation = evaluatePopulation(distanceMatrix, population)
@@ -138,32 +140,29 @@ def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.
 
 @njit(nogil=True)
 def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
-    offspring = np.zeros((n, distanceMatrix.shape[0]))
+    offspring = np.zeros((n, distanceMatrix.shape[0]), dtype=np.int32)
     for i in range(0, n, 2):
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
-        offspring1, offspring2 = PMX(parent1, parent2)
+        offspring1, offspring2 = OX(parent1, parent2)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.8:
+        if probability < 0.5:
             individual = swap_mutation(individual)
     return merged
 
 
 def initialize(TSP, populationSize: int) -> np.ndarray:
     rng = np.random.default_rng()
-    population = np.arange(TSP.shape[1])
+    population = np.arange(TSP.shape[1], dtype=np.int32)
     population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
     population = rng.permuted(population, axis=1)
     population[0] = greedy(TSP)
-    out = []
-    for row in population:
-        # row = k_opt(row, TSP, 1)
-        out.append(row)
-    return np.array(out)
+    population = rand_opt(population, TSP, max_depth=25)
+    return population
 
 
 @njit()
@@ -191,7 +190,7 @@ def inversion_mutation(individual: np.array) -> None:
 
 
 def greedy(distanceMatrix):
-    solution = np.empty(distanceMatrix.shape[0])
+    solution = np.empty(distanceMatrix.shape[0], dtype=np.int32)
     dm = np.where(distanceMatrix != 0, distanceMatrix, np.inf)
     minimum = np.unravel_index(dm.argmin(), dm.shape)
     solution[0] = minimum[0]
@@ -301,7 +300,7 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
     index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
     indices = np.array([index1, index2])
-    splitp1 = np.array_split(parent1, indices)
+    splitp1 = list(np.array_split(parent1, indices))
     splitp2 = np.array_split(parent2, indices)
     o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
     o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
@@ -335,11 +334,14 @@ def selection(population: np.array, k: int, TSP):
 
 
 @njit()
-def elimination(population, numberOfSelections, kTournment, distanceMatrix):
+def elimination(
+    population, numberOfSelections, kTournment, distanceMatrix, elite: np.array
+):
+    top_fit = fitness(distanceMatrix, elite)
     populationSize = len(population)
-    newPopulation = np.zeros((numberOfSelections, population.shape[1]))
+    newPopulation = np.zeros((numberOfSelections, population.shape[1]), dtype=np.int32)
     start = np.arange(populationSize)
-    for idx in range(numberOfSelections):
+    for idx in range(1, numberOfSelections):
         randomIndices = np.random.choice(start, size=kTournment)
         bestFit = 1e9
         bestIndice = randomIndices[0]
@@ -348,7 +350,11 @@ def elimination(population, numberOfSelections, kTournment, distanceMatrix):
             if fit < bestFit:
                 bestFit = fit
                 bestIndice = indice
+                if fit < top_fit:
+                    elite = population[indice]
+                    top_fit = fit
         newPopulation[idx] = population[bestIndice]
+    newPopulation[0] = elite
     return newPopulation
 
 

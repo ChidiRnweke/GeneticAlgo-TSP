@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import plotly.express as px
 
+
 def load_data(file: str, number_cities):
     file_path = create_path(file)
     headers = ["Iteration", "Time", "Mean", "Best"]
@@ -12,6 +13,7 @@ def load_data(file: str, number_cities):
     df = pd.read_csv(file_path, header=None, names=headers)
     df = df.drop([0, 1])
     return df
+
 
 def plot(file: str, num_cities):
     df = load_data(file, num_cities)
@@ -38,7 +40,7 @@ def plot(file: str, num_cities):
 
     # plt.show()
 
-    fig = px.line(df, x='Iteration', y='Mean', title='Mean value per iteration')
+    fig = px.line(df, x="Iteration", y="Mean", title="Mean value per iteration")
     fig.show()
 
 
@@ -46,6 +48,7 @@ def create_path(file: str):
     dir_path = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(dir_path, file)
     return file_path
+
 
 if __name__ == "__main__":
     plot("r0123456.csv", 29)
