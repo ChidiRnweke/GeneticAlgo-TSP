@@ -1,4 +1,7 @@
 import numpy as np
+import dask.config
+import dask.distributed
+
 
 a = np.array((1, 2, 3, 4, 5, 6, 7, 8, 9))
 b = np.array((9, 3, 7, 8, 2, 6, 5, 1, 4))
@@ -143,5 +146,5 @@ def inversion_mutation(individual: np.array) -> None:
     return individual
 
 
-print(OX(a, b))
+print(dask.config.config)
 

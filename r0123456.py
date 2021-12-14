@@ -21,9 +21,9 @@ class r0786701:
         # Parameters
         populationSize = 5000
         maxIterations = 1000
-        kTournment = 3
+        kTournment = 7
         numberOfOffspringPT = 1250
-        sameSolutionIterations = 1000
+        sameSolutionIterations = 50
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -53,7 +53,7 @@ class r0786701:
             results = []
 
             for partition in population:
-                opt = delayed(rand_opt)(partition, distanceMatrix, max_depth=4)
+                opt = delayed(rand_opt)(partition, distanceMatrix, max_depth=7)
                 results.append(opt)
             pop_lazy = delayed(np.vstack)(results)
             population = pop_lazy.compute(scheduler="threads", num_workers=4)
@@ -142,13 +142,13 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
     for i in range(0, n, 2):
         parent1 = selection(pop, kTournment, distanceMatrix)
         parent2 = selection(pop, kTournment, distanceMatrix)
-        offspring1, offspring2 = OX(parent1, parent2)
+        offspring1, offspring2 = PMX(parent1, parent2)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.3:
+        if probability < 0.8:
             individual = swap_mutation(individual)
     return merged
 
@@ -395,7 +395,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour100.csv")
+        algorithm.optimize("tour250.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
