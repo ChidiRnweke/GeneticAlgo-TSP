@@ -20,10 +20,10 @@ class r0786701:
         file.close()
 
         # Parameters
-        populationSize = 2000
+        populationSize = 800
         maxIterations = 1000
         kTournment = 3
-        numberOfOffspringPT = 500
+        numberOfOffspringPT = 200
         sameSolutionIterations = 10
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
@@ -132,8 +132,10 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
 
 
 def initialize(TSP, populationSize: int) -> np.ndarray:
+    rng = np.random.default_rng()
     population = np.arange(TSP.shape[1])
     population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
+    population = rng.permuted(population, axis=1)
     population[0] = greedy(TSP)
     out = []
     for row in population:
@@ -376,7 +378,6 @@ def evaluatePopulation(TSP, population):
     bestFit = fitnesses[bestidx]
     bestIndividual = population[bestidx]
     return (meanfit, bestFit, bestIndividual)
-
 
 
 if __name__ == "__main__":
