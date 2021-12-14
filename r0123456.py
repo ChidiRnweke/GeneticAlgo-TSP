@@ -1,6 +1,6 @@
 import Reporter
 import numpy as np
-from numba import njit, types, prange
+from numba import njit, types
 import cProfile, pstats
 from dask import delayed
 
@@ -19,11 +19,11 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 2000
+        populationSize = 5000
         maxIterations = 1000
         kTournment = 3
-        numberOfOffspringPT = 500
-        sameSolutionIterations = 10
+        numberOfOffspringPT = 1250
+        sameSolutionIterations = 1000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
 
@@ -41,22 +41,22 @@ class r0786701:
             bestSolution = np.array([1, 2, 3, 4, 5])
 
             results = []
-
             for _ in range(4):
                 pop_part = delayed(recombination)(
                     population, kTournment, distanceMatrix, numberOfOffspringPT
                 )
                 results.append(pop_part)
-            pop_test = delayed(list)(results)
-            population = pop_test.compute(scheduler="threads", num_workers=4)
+            pop_lazy = delayed(np.array)(results)
+            population = pop_lazy.compute(scheduler="threads", num_workers=4)
 
+            # population = rand_opt(population, distanceMatrix)
             results = []
+
             for partition in population:
-                for individual in partition:
-                    opt = delayed(k_opt)(individual, distanceMatrix, 1)
-                    results.append(opt)
-            pop_test = delayed(np.vstack)(results)
-            population = pop_test.compute(scheduler="threads", num_workers=4)
+                opt = delayed(rand_opt)(partition, distanceMatrix, max_depth=4)
+                results.append(opt)
+            pop_lazy = delayed(np.vstack)(results)
+            population = pop_lazy.compute(scheduler="threads", num_workers=4)
 
             population = elimination(
                 population, populationSize, kTournment, distanceMatrix
@@ -107,7 +107,33 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     return best_path
 
 
-# Create the initial population
+@njit(nogil=True)
+def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.array:
+    """[k_opt without constructing the full neighbourhood. The max_depth parameter
+        controls how many edges can be changed at most. The actual result is sampled
+        at random.]
+
+    Args:
+        candidate (np.array): [Candidate solution]
+        problem (np.array): [Distance Matrix]
+        max_depth (int): [Controls the maximum amount of edges that can be checked]
+
+    Returns:
+        np.array: [Best solution sampled from the neighbourhood]
+    """
+    for candidate in partition:
+        best_path = candidate
+        best_fit = fitness(problem, candidate)
+        depth = np.random.randint(0, max_depth)
+        for i in range(depth):
+            depth = np.random.randint(0, max_depth)
+            for j in range(i + 1, depth):
+                neighbour = candidate.copy()
+                neighbour[i], neighbour[j] = neighbour[j], neighbour[i]
+                fit = fitness(TSP=problem, path=neighbour)
+                best_path = neighbour if fit < best_fit else best_path
+        candidate = best_path
+    return partition
 
 
 @njit(nogil=True)
@@ -342,9 +368,11 @@ def fitness(TSP: np.array, path: np.array) -> float:
     for i in range(path.shape[0]):
         departingCity = int(path[i - 1])
         arrivingCity = int(path[i])
-        totalDistance += TSP[departingCity, arrivingCity]
-        if totalDistance == np.inf:
-            return 1e99999999999
+
+        if TSP[departingCity, arrivingCity] == np.inf:
+            totalDistance += 1e99
+        else:
+            totalDistance += TSP[departingCity, arrivingCity]
     return totalDistance
 
 
@@ -367,7 +395,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour29.csv")
+        algorithm.optimize("tour100.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
