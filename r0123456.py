@@ -20,15 +20,15 @@ class r0786701:
         distanceMatrix = np.loadtxt(file, delimiter=",")
         file.close()
         # Parameters
-        populationSize = 5000
+        populationSize = 800
         maxIterations = 5000
-        kTournment = 10
-        numberOfOffspringPT = 1250
-        sameSolutionIterations = 50
+        kTournment = 6
+        numberOfOffspringPT = 200
+        sameSolutionIterations = 5000
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
-        elite = population[0].copy()
-
+        eliteFit = fitness(distanceMatrix, population[0])
+        elite = population[0]
         iteration = 0
         meanObjective = 1.0
         bestObjective = 0.0
@@ -47,27 +47,27 @@ class r0786701:
                 pop_part = delayed(recombination)(
                     population, kTournment, distanceMatrix, numberOfOffspringPT
                 )
+                pop_part = delayed(rand_opt)(pop_part, distanceMatrix)
                 results.append(pop_part)
-            pop_lazy = delayed(np.array)(results)
-            population = pop_lazy.compute(scheduler="threads", num_workers=4)
-
-            # population = rand_opt(population, distanceMatrix)
-            results = []
-
-            for partition in population:
-                opt = delayed(rand_opt)(partition, distanceMatrix)
-                results.append(opt)
             pop_lazy = delayed(np.vstack)(results)
             population = pop_lazy.compute(scheduler="threads", num_workers=4)
 
+            # population = rand_opt(population, distanceMatrix)
+
             population = elimination(
-                population, populationSize, kTournment, distanceMatrix, elite
+                population, populationSize, kTournment, distanceMatrix
             )
+            population[0] = elite
 
             populationEvaluation = evaluatePopulation(distanceMatrix, population)
             meanObjective = populationEvaluation[0]
             bestObjective = populationEvaluation[1]
             bestSolution = populationEvaluation[2]
+
+            if bestObjective < eliteFit:
+                elite = bestSolution
+                eliteFit = bestObjective
+
             timeLeft = self.reporter.report(meanObjective, bestObjective, bestSolution)
             difference = prevSolution - bestObjective
             if difference < tolerance:
@@ -81,11 +81,10 @@ class r0786701:
                 break
             iteration += 1
 
-        # Your code here.
         return 0
 
 
-@njit(nogil=True)
+@njit(cache=True)
 def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     """[Creates the full neighbour sructure for and candidate and selects the best one]
 
@@ -109,7 +108,7 @@ def k_opt(candidate: np.array, problem: np.array, k: int) -> np.array:
     return best_path
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.array:
     """[k_opt without constructing the full neighbourhood. The max_depth parameter
         controls how many edges can be changed at most. The actual result is sampled
@@ -138,7 +137,7 @@ def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.
     return partition
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: int):
     offspring = np.zeros((n, distanceMatrix.shape[0]), dtype=np.int32)
     for i in range(0, n, 2):
@@ -150,7 +149,7 @@ def recombination(pop: np.array, kTournment: int, distanceMatrix: np.array, n: i
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.5:
+        if probability < 0.8:
             individual = swap_mutation(individual)
     return merged
 
@@ -161,11 +160,11 @@ def initialize(TSP, populationSize: int) -> np.ndarray:
     population = np.broadcast_to(population, (populationSize, TSP.shape[1]))
     population = rng.permuted(population, axis=1)
     population[0] = greedy(TSP)
-    population = rand_opt(population, TSP, max_depth=25)
+    population = rand_opt(population, TSP, max_depth=2)
     return population
 
 
-@njit()
+@njit(cache=True)
 def swap_mutation(individual: np.array) -> None:
     indices = np.random.randint(low=0, high=len(individual), size=2)
     individual[indices[0]], individual[indices[1]] = (
@@ -173,20 +172,22 @@ def swap_mutation(individual: np.array) -> None:
         individual[indices[0]],
     )
     probability = np.random.uniform(0, 1)
-    if probability > 0.05:
+    if probability < 0.4:
         inversion_mutation(individual)
-    elif probability > 0.5:
-        swap_mutation(individual)
-    else:
-        return
 
 
-@njit()
+@njit(cache=True)
 def inversion_mutation(individual: np.array) -> None:
-    cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
-    cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
+    cut1 = np.random.randint(low=0, high=int(individual.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 1, high=individual.shape[0])
     individual[cut1:cut2] = np.flip(individual[cut1:cut2])
-    return
+
+
+@njit(cache=True)
+def scramble_mutation(individual: np.array) -> None:
+    cut1 = np.random.randint(low=0, high=int(individual.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 1, high=individual.shape[0])
+    np.random.shuffle(individual[cut1:cut2])
 
 
 def greedy(distanceMatrix):
@@ -204,7 +205,7 @@ def greedy(distanceMatrix):
     return solution
 
 
-@njit()
+@njit(cache=True)
 def OX(parent1: np.array, parent2: np.array):
     o1 = np.empty_like(parent1)
     o2 = np.empty_like(parent1)
@@ -284,7 +285,7 @@ def CX(parent1: np.array, parent2: np.array):
     return o1, o2
 
 
-@njit()
+@njit(cache=True)
 def PMX(parent1: np.array, parent2: np.array) -> tuple:
     """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
         These indices form a mapping for which elements outside of the split need to be changed to.]
@@ -319,7 +320,7 @@ def PMX(parent1: np.array, parent2: np.array) -> tuple:
     return o1, o2
 
 
-@njit()
+@njit(cache=True)
 def selection(population: np.array, k: int, TSP):
     indices = np.random.choice(np.arange(population.shape[0]), k)
     selected = population[indices]
@@ -333,15 +334,12 @@ def selection(population: np.array, k: int, TSP):
     return highest
 
 
-@njit()
-def elimination(
-    population, numberOfSelections, kTournment, distanceMatrix, elite: np.array
-):
-    top_fit = fitness(distanceMatrix, elite)
+@njit(cache=True)
+def elimination(population, numberOfSelections, kTournment, distanceMatrix: np.array):
     populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]), dtype=np.int32)
     start = np.arange(populationSize)
-    for idx in range(1, numberOfSelections):
+    for idx in range(0, numberOfSelections):
         randomIndices = np.random.choice(start, size=kTournment)
         bestFit = 1e9
         bestIndice = randomIndices[0]
@@ -350,15 +348,11 @@ def elimination(
             if fit < bestFit:
                 bestFit = fit
                 bestIndice = indice
-                if fit < top_fit:
-                    elite = population[indice]
-                    top_fit = fit
         newPopulation[idx] = population[bestIndice]
-    newPopulation[0] = elite
     return newPopulation
 
 
-@njit()
+@njit(cache=True)
 # Calculates the fitness of one individual
 def fitness(TSP: np.array, path: np.array) -> float:
     """[Calculates the fitness of an individual]
@@ -372,8 +366,8 @@ def fitness(TSP: np.array, path: np.array) -> float:
     """
     totalDistance = 0
     for i in range(path.shape[0]):
-        departingCity = int(path[i - 1])
-        arrivingCity = int(path[i])
+        departingCity = path[i - 1]
+        arrivingCity = path[i]
 
         if TSP[departingCity, arrivingCity] == np.inf:
             totalDistance += 1e99
@@ -383,10 +377,10 @@ def fitness(TSP: np.array, path: np.array) -> float:
 
 
 # Calculates the mean fitness of the population and the best fitting individual (Needed for the Reporter class)
-@njit(locals={"meanfit": types.float64})
+@njit(locals={"meanfit": types.float64}, cache=True)
 def evaluatePopulation(TSP, population):
     bestFit = 1e99999999999
-    bestIndividual = None
+    bestIndividual = np.empty(population.shape[1], dtype=np.int32)
     fitnesses = np.array([fitness(TSP=TSP, path=ind) for ind in population])
     meanfit = np.mean(fitnesses)
     bestidx = np.argmin(fitnesses)
