@@ -1,4 +1,5 @@
 from hashlib import new
+from os import replace
 import Reporter
 import numpy as np
 from numba import njit, types
@@ -22,9 +23,9 @@ class r0786701:
         # Parameters
         populationSize = 800
         maxIterations = 5000
-        kTournment = 6
+        kTournment = 5
         numberOfOffspringPT = 200
-        sameSolutionIterations = 5000
+        sameSolutionIterations = 200
         mu = 0.3
         population = initialize(distanceMatrix, populationSize)
         eliteFit = fitness(distanceMatrix, population[0])
@@ -336,19 +337,19 @@ def selection(population: np.array, k: int, TSP):
 
 @njit(cache=True)
 def elimination(population, numberOfSelections, kTournment, distanceMatrix: np.array):
-    populationSize = len(population)
     newPopulation = np.zeros((numberOfSelections, population.shape[1]), dtype=np.int32)
-    start = np.arange(populationSize)
-    for idx in range(0, numberOfSelections):
-        randomIndices = np.random.choice(start, size=kTournment)
+    for i in range(numberOfSelections):
+        sample = population[
+            np.random.choice(population.shape[0], kTournment, replace=False)
+        ]
         bestFit = 1e9
-        bestIndice = randomIndices[0]
-        for indice in randomIndices:
-            fit = fitness(distanceMatrix, population[indice])
+        bestIndivual = sample[0]
+        for indiviual in sample:
+            fit = fitness(distanceMatrix, indiviual)
             if fit < bestFit:
                 bestFit = fit
-                bestIndice = indice
-        newPopulation[idx] = population[bestIndice]
+                bestIndivual = indiviual.copy()
+        newPopulation[i] = bestIndivual.copy()
     return newPopulation
 
 
@@ -395,7 +396,7 @@ if __name__ == "__main__":
 
         profiler.enable()
         algorithm = r0786701()
-        algorithm.optimize("tour250.csv")
+        algorithm.optimize("tour29.csv")
         profiler.disable()
         stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
         stats.strip_dirs()
