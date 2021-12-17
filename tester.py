@@ -56,10 +56,10 @@ def CX(parent1: np.array, parent2: np.array):
 
 
 def OX(parent1: np.array, parent2: np.array):
-    o1 = np.empty_like(parent1)
-    o2 = np.empty_like(parent1)
-    cut1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
-    cut2 = np.random.randint(low=cut1 + 2, high=parent1.shape[0] - 1)
+    o1 = np.empty_like(parent1) * -1
+    o2 = np.empty_like(parent1) * -1
+    cut1 = np.random.randint(low=0, high=int(parent1.shape[0] / 2))
+    cut2 = np.random.randint(low=cut1 + 2, high=parent1.shape[0])
     order = np.concatenate(
         (np.arange(cut2, len(parent1)), np.arange(cut1), np.arange(cut1, cut2))
     )
@@ -154,7 +154,6 @@ def inversion_mutation(individual: np.array) -> None:
     cut1 = np.random.randint(low=1, high=int(individual.shape[0] / 2))
     cut2 = np.random.randint(low=cut1 + 2, high=individual.shape[0] - 1)
     individual[cut1:cut2] = np.flip(individual[cut1:cut2])
-    return individual
 
 
-PMX(a, b)
+print(OX(a, b))
