@@ -74,8 +74,8 @@ class r0786701:
             prevSolution = bestObjective
 
             print(f"Time left: {timeLeft}")
-            # if timeLeft < 0:
-            #     break
+            if timeLeft < 0:
+                break
             iteration += 1
 
         return 0
@@ -166,7 +166,7 @@ def recombination(pop: np.array, K: int, TSP: np.array, n: int,) -> np.ndarray:
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.6:
+        if probability < 0.5:
             inversionMutation(individual)
     return merged
 
