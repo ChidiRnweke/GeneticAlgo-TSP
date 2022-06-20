@@ -1,7 +1,7 @@
 import numpy as np
 import dask.config
 import dask.distributed
-
+import pandas as pd
 
 a = np.array((1, 2, 3, 4, 5, 6, 7, 8, 9))
 b = np.array((9, 3, 7, 8, 2, 6, 5, 1, 4))
@@ -156,4 +156,11 @@ def inversion_mutation(individual: np.array) -> None:
     individual[cut1:cut2] = np.flip(individual[cut1:cut2])
 
 
-print(OX(a, b))
+b = pd.read_csv(
+    "r0786701.csv",
+    usecols=["# Iteration", "Elapsed time", "Mean value", "Best value", "Cycle"],
+    skiprows=1,
+    skipinitialspace=True,
+)
+b = b.drop("Cycle", axis=1)
+print(b)

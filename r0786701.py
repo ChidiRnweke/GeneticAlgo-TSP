@@ -1,12 +1,8 @@
+from poplib import POP3
 import Reporter
 import numpy as np
 from numba import njit, types
-import cProfile
-import pstats
 from dask import delayed
-
-
-# Modify the class name to match your student number.
 
 
 class r0786701:
@@ -21,13 +17,12 @@ class r0786701:
         file.close()
         # Parameters
         POPSIZE = TSP.shape[0] * 2
-        MAXN = 5000
+        MAXN = 1000
         NELITES = round(0.01 * POPSIZE)
-        K = 8
-        OFFSPRINGSIZE = (
-            int(POPSIZE / 4) if int(POPSIZE / 4) % 2 == 0 else int(POPSIZE / 4) + 1
-        )
-        TERMINATION = 500
+        K = 5
+        prob = 0.5
+        OFFSPRINGSIZE = -(-POPSIZE // 4)  # Ceiling division
+        TERMINATION = 250
 
         population, fitnesses = initialize(TSP, POPSIZE)
         elites = population[:NELITES, :]
@@ -48,7 +43,9 @@ class r0786701:
 
             results = []
             for _ in range(4):
-                pop_part = delayed(recombination)(population, 10, TSP, OFFSPRINGSIZE)
+                pop_part = delayed(recombination)(
+                    population, prob, 10, TSP, OFFSPRINGSIZE
+                )
                 pop_part = delayed(rand_opt)(pop_part, TSP)
                 results.append(pop_part)
             pop_lazy = delayed(np.vstack)(results)
@@ -56,7 +53,7 @@ class r0786701:
 
             population, fitnesses = elimination(population, POPSIZE - NELITES, K, TSP)
 
-            population, fitnesses, elites = elitism(
+            population, fitnesses, elites, eliteFit = elitism(
                 population, TSP, elites, eliteFit, fitnesses, NELITES
             )
 
@@ -69,8 +66,10 @@ class r0786701:
             difference = prevSolution - bestObjective
             if difference <= tolerance:
                 sameSolutionCount += 1
+                prob = np.minimum(0.8, prob + 0.01)
             else:
                 sameSolutionCount = 0
+                prob = np.maximum(0.3, prob - 0.02)
             prevSolution = bestObjective
 
             print(f"Time left: {timeLeft}")
@@ -81,37 +80,8 @@ class r0786701:
         return 0
 
 
-@njit(cache=True)
-def k_opt(population: np.array, problem: np.array, k: int) -> np.array:
-    """[Creates the full neighbour sructure for each candidate and selects the best one]
-
-    Args:
-        candidate (Individual): [The given candidate]
-
-
-    Returns:
-        Individual: [The best candidate in the neighbourhood]
-    """
-    size = population.shape[1]
-    pop_size = population.shape[0]
-    for c in range(pop_size):
-        candidate = population[c]
-        for _ in range(k):
-            bestPath = candidate
-            bestFit = fitness(problem, candidate)
-            for i in range(size):
-                for j in range(i + 1, size):
-                    neighbour = candidate.copy()
-                    neighbour[i], neighbour[j] = neighbour[j], neighbour[i]
-                    fit = fitness(TSP=problem, path=neighbour)
-                    if fit < bestFit:
-                        bestFit = fit
-                        bestPath = neighbour.copy()
-        population[c] = bestPath.copy()
-
-
 @njit(nogil=True, cache=True)
-def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.array:
+def rand_opt(partition: np.array, problem: np.array, max_depth: int = 20) -> np.array:
     """[k_opt without constructing the full neighbourhood.
         The max_depth parametercontrols how many edges can be changed at most.
         The actual result is sampled at random.]
@@ -128,10 +98,10 @@ def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.
         candidate = partition[c]
         bestPath = candidate
         bestFit = fitness(problem, candidate)
-        depth = np.random.randint(0, max_depth)
-        for i in range(depth):
-            depth_2 = np.random.randint(0, max_depth)
-            for j in range(i + 1, depth_2):
+        depth = np.random.choice(np.arange(candidate.shape[0]), max_depth)
+        for i in depth:
+            depth_2 = np.random.choice(np.arange(candidate.shape[0]), max_depth)
+            for j in depth_2:
                 neighbour = candidate.copy()
                 neighbour[i], neighbour[j] = neighbour[j], neighbour[i]
                 fit = fitness(TSP=problem, path=neighbour)
@@ -143,7 +113,7 @@ def rand_opt(partition: np.array, problem: np.array, max_depth: int = 10) -> np.
 
 
 @njit(nogil=True, cache=True)
-def recombination(pop: np.array, K: int, TSP: np.array, n: int,) -> np.ndarray:
+def recombination(pop: np.array, prob, K: int, TSP: np.array, n: int,) -> np.ndarray:
     """[Carries out selection, crossover and mutation steps n / 2 times.]
 
     Args:
@@ -158,15 +128,15 @@ def recombination(pop: np.array, K: int, TSP: np.array, n: int,) -> np.ndarray:
 
     offspring = np.zeros((n, TSP.shape[0]), dtype=np.int32)
     for i in range(0, n, 2):
-        parent1 = selection(pop, K, TSP)
-        parent2 = selection(pop, K, TSP)
+        parent1 = selection(pop, 1, TSP)
+        parent2 = selection(pop, 1, TSP)
         offspring1, offspring2 = OX(parent1, parent2)
         offspring[i] = offspring1.copy()
         offspring[i + 1] = offspring2.copy()
     merged = np.vstack((pop, offspring))
     for individual in merged:
         probability = np.random.uniform(0, 1)
-        if probability < 0.5:
+        if probability < prob:
             inversionMutation(individual)
     return merged
 
@@ -198,20 +168,6 @@ def initialize(TSP: np.array, POPSIZE: int) -> np.ndarray:
 
 
 @njit(cache=True)
-def swapMutation(individual: np.array) -> None:
-    """[Swaps two random edges in place.]
-
-    Args:
-        individual (np.array): [Individual]
-    """
-    indices = np.random.randint(low=0, high=len(individual), size=2)
-    individual[indices[0]], individual[indices[1]] = (
-        individual[indices[1]],
-        individual[indices[0]],
-    )
-
-
-@njit(cache=True)
 def inversionMutation(individual: np.array) -> None:
     """[Inverts part of an individual in place]
 
@@ -223,54 +179,27 @@ def inversionMutation(individual: np.array) -> None:
     individual[cut1:cut2] = np.flip(individual[cut1:cut2])
 
 
-@njit(cache=True)
-def scrambleMutation(individual: np.array) -> None:
-    """[Scrambles part of an individual in place]
-
-    Args:
-        individual (np.array): [1 individual]
-    """
-    cut1 = np.random.randint(low=0, high=int(individual.shape[0] / 2))
-    cut2 = np.random.randint(low=cut1 + 1, high=individual.shape[0])
-    np.random.shuffle(individual[cut1:cut2])
-
-
-def _greedy(TSP: np.array) -> np.array:
-    """[Finds the greedy heuristic of the problem by always picking the shortest distance]
-
-    Args:
-        TSP (np.array): [Distance Matrix]
-
-    Returns:
-        np.array: [Greedy solution]
-    """
-    solution = np.empty(TSP.shape[0], dtype=np.int32)
-    dm = np.where(TSP != 0, TSP, np.inf)
-    minimum = np.unravel_index(dm.argmin(), dm.shape)
-    solution[0] = minimum[0]
-    solution[1] = minimum[1]
-    dm[:, minimum] = np.inf
-    minimum = minimum[1]
-    for index in range(2, TSP.shape[0]):
-        minimum = np.argmin(dm[minimum, :])
-        solution[index] = minimum
-        dm[:, minimum] = np.inf
-    return solution
-
-
 def greedy(TSP: np.array) -> np.array:
+    rng = np.random.default_rng()
     solution = np.empty(TSP.shape[0], dtype=np.int32)
     start_pop = np.empty_like(TSP, dtype=np.int32)
     dm = np.where(TSP != 0, TSP, np.inf)
     for i in range(TSP.shape[0]):
+        checked = set()
         dm = np.where(TSP != 0, TSP, np.inf)
         minimum = i
         solution[0] = i
+        checked.add(minimum)
         dm[:, minimum] = np.inf
         for index in range(1, TSP.shape[0]):
             minimum = np.argmin(dm[minimum, :])
-            solution[index] = minimum
-            dm[:, minimum] = np.inf
+            if minimum not in checked:
+                checked.add(minimum)
+                solution[index] = minimum
+                dm[:, minimum] = np.inf
+            else:
+                start_pop[i] = rng.permuted(np.arange(TSP.shape[0]))
+                break
         start_pop[i] = solution.copy()
     return start_pop
 
@@ -329,98 +258,9 @@ def elitism(population, TSP, elites, eliteFit, fitnesses, numelites):
         pass
     else:
         population[:numelites, :] = rand_opt(population[:numelites, :], TSP)
-        elites = population[:numelites, :]
-    return population, fitnesses, elites
-
-
-@njit(nogil=True)
-def CX(parent1: np.array, parent2: np.array) -> np.array:
-    """[Cycl crosover, not used]
-
-    Args:
-        parent1 (np.array): [description]
-        parent2 (np.array): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    initialp1 = parent1.copy()
-    initialp2 = parent2.copy()
-    to_check = np.arange(1, len(parent1))
-    o1 = np.ones_like(parent1) * -1
-    o2 = np.ones_like(parent1) * -1
-
-    value = parent1[0]
-    o1[0] = parent1[0]
-    to_check = np.delete(to_check, 0)
-    while to_check.size > 0:
-        pos = int(np.argwhere(parent2 == value))
-        next = parent1[pos]
-        if next not in o1:
-            o1[pos] = next
-            value = next.copy()
-            to_check = np.delete(to_check, np.argwhere(to_check == next))
-        else:
-            parent1, parent2 = parent2, parent1
-            value = to_check[0]
-            continue
-
-    parent1 = initialp2.copy()
-    parent2 = initialp1.copy()
-    to_check = np.arange(1, len(parent1))
-
-    value = parent1[0]
-    o2[0] = parent1[0]
-    to_check = np.delete(to_check, 0)
-    while to_check.size > 0:
-        pos = int(np.argwhere(parent2 == value))
-        next = parent1[pos]
-        if next not in o2:
-            o2[pos] = next
-            value = next.copy()
-            to_check = np.delete(to_check, np.argwhere(to_check == next))
-        else:
-            parent1, parent2 = parent2, parent1
-            value = to_check[0]
-            continue
-    parent1, parent2 = initialp1, initialp2
-
-    return o1, o2
-
-
-@njit(cache=True)
-def PMX(parent1: np.array, parent2: np.array) -> tuple:
-    """[Partially mapped crossover: take two parents, produce 2 random indices to split both.
-        These indices form a mapping for which elements outside of the split need to be changed to.]
-
-    Args:
-        par1 (np.array): [First parent]
-        par2 (np.array): [Second parent]
-
-    Returns:
-        tuple of numpy arrays: [Contains both offspring 1 and offspring 2]
-    """
-
-    index1 = np.random.randint(low=1, high=int(parent1.shape[0] / 2))
-    index2 = np.random.randint(low=index1 + 2, high=parent1.shape[0] - 1)
-    indices = np.array([index1, index2])
-    splitp1 = list(np.array_split(parent1, indices))
-    splitp2 = np.array_split(parent2, indices)
-    o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
-    o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
-    mapping = set(zip(splitp1[1], splitp2[1]))
-
-    while np.unique(o1).size != o1.size:
-        for key, val in mapping:
-            splitp1[0][splitp1[0] == val] = key
-            splitp1[2][splitp1[2] == val] = key
-        o1 = np.concatenate((splitp1[0], splitp2[1], splitp1[2]))
-    while np.unique(o2).size != o2.size:
-        for key, val in mapping:
-            splitp2[0][splitp2[0] == key] = val
-            splitp2[2][splitp2[2] == key] = val
-        o2 = np.concatenate((splitp2[0], splitp1[1], splitp2[2]))
-    return o1, o2
+        elites = population[:numelites, :].copy()
+        eliteFit = fitnesses[:numelites].copy()
+    return population, fitnesses, elites, eliteFit
 
 
 @njit(cache=True)
@@ -514,12 +354,6 @@ def evaluatePopulation(TSP, population):
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    with open("profile.txt", "w") as f:
-        profiler.enable()
-        algorithm = r0786701()
-        algorithm.optimize("tour250.csv")
-        profiler.disable()
-        stats = pstats.Stats(profiler, stream=f).sort_stats(pstats.SortKey.CUMULATIVE)
-        stats.strip_dirs()
-        stats.print_stats()
+
+    algorithm = r0786701()
+    algorithm.optimize("./tour500.csv")
